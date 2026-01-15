@@ -18,6 +18,5 @@ async fn main() {
 }
 
 async fn hello_handler() -> Html<&'static str> {
-    // TODO: Update this to a custom message!
-    Html("<h1>Hello, World!</h1>")
+    Html("<h1>Hello from Auth-Service</h1>")
 }
