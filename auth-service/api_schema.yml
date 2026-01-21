@@ -6,12 +6,14 @@ info:
   version: 1.0.0
 
 servers:
-  - url: 'http://example.com/api'
-    description: Main server
+  - url: 'http://localhost:3000/api'
+    description: 'Local development server'
 
 paths:
   /:
     get:
+      servers:
+        - url: 'http://localhost:3000/'
       summary: Login/Sign-up UI
       description: This route serves the login/signup UI
       responses:
