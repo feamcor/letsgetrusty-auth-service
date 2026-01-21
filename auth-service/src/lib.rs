@@ -17,7 +17,7 @@ pub struct Application {
 }
 
 impl Application {
-    #[instrument]
+    #[instrument(level="trace")]
     pub async fn build(address: SocketAddr) -> Result<Self, Box<dyn Error>> {
         let assets_dir = ServeDir::new("assets")
             .not_found_service(ServeFile::new("assets/index.html"));
@@ -38,7 +38,6 @@ impl Application {
         Ok(application)
     }
 
-    #[instrument]
     pub async fn run(self) -> Result<(), std::io::Error> {
         info!("listening on {}", &self.address);
         self.server.await
