@@ -11,8 +11,10 @@ async fn main() {
         .with(fmt::layer().with_span_events(fmt::format::FmtSpan::CLOSE))
         .init();
     let socket_addr = SocketAddr::from(([0,0,0,0], 3000));
-    let application = Application::build(socket_addr)
+    Application::build(socket_addr)
         .await
-        .expect("Failed to build app");
-    application.run().await.expect("Failed to run app");
+        .expect("Failed to build app")
+        .run()
+        .await
+        .expect("Failed to run app")
 }
