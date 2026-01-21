@@ -1,8 +1,18 @@
 use axum::http::StatusCode;
+use axum::Json;
 use axum::response::IntoResponse;
+use serde::Deserialize;
 use tracing::instrument;
 
-#[instrument]
-pub async fn signup() -> impl IntoResponse {
-    StatusCode::OK.into_response() // TODO: dummy response for task 4
+#[derive(Debug, Deserialize)]
+pub struct SignupRequest {
+    pub email: String,
+    pub password: String,
+    #[serde(rename = "requires2FA")]
+    pub requires_2fa: bool,
+}
+
+#[instrument(level="trace")]
+pub async fn signup(Json(_request): Json<SignupRequest>) -> impl IntoResponse {
+    StatusCode::OK.into_response()
 }

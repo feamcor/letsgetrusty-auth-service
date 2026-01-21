@@ -1,6 +1,6 @@
 use reqwest::StatusCode;
 use serde_json::json;
-use crate::helpers::TestApp;
+use crate::helpers::{random_email, TestApp};
 
 #[tokio::test]
 async fn signup_user_created_successfully() {
@@ -33,12 +33,21 @@ async fn signup_email_already_exists() {
 }
 
 #[tokio::test]
-async fn signup_unprocessable_content() {
+async fn should_return_422_if_malformed_input() {
     let app = TestApp::new().await;
-    let body = json!({"email": "user@example.com", "password": "string", "requires2FA": true});
-    let response = app.post_signup(&body).await;
-    assert_eq!(response.status(), StatusCode::OK); // TODO: dummy assertion for task 4
-    //assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let _email = random_email();
+    let test_cases = [
+        json!({"password": "password123", "requires2FA": true}),
+    ];
+    for test_case in test_cases.iter() {
+        let response = app.post_signup(&test_case).await;
+        assert_eq!(
+            response.status(),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Input: {:?}",
+            test_case
+        );
+    }
 }
 
 #[tokio::test]

@@ -4,6 +4,7 @@ use reqwest::header::SET_COOKIE;
 use reqwest::{Client, Response};
 use serde::Serialize;
 use std::net::SocketAddr;
+use uuid::Uuid;
 
 pub struct TestApp {
     pub base_url: String,
@@ -111,4 +112,8 @@ pub fn assert_jwt(jwt: Option<String>) -> String {
     assert!(jwt.contains("SameSite=Lax;"), "JWT must have SameSite=Lax set");
     assert!(jwt.ends_with("Path=/"), "JWT must have Path=/ set");
     jwt
+}
+
+pub fn random_email() -> String {
+    format!("{}@example.com", Uuid::new_v4())
 }
