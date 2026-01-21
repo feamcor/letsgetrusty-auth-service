@@ -10,9 +10,18 @@ use axum::{
 use axum_extra::extract::CookieJar;
 use serde::Serialize;
 use tower_http::services::ServeDir;
+use tracing::info;
+use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(EnvFilter::from_default_env().add_directive(tracing::Level::INFO.into()))
+        .init();
+
     let app = Router::new()
         .nest_service("/assets", ServeDir::new("assets"))
         .route("/", get(root))
@@ -20,7 +29,7 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await.unwrap();
 
-    println!("listening on {}", listener.local_addr().unwrap());
+    info!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
 }
 
