@@ -93,6 +93,7 @@ impl TestApp {
     }
 }
 
+#[allow(dead_code)]
 pub fn jwt_cookie(response: &Response) -> Option<String> {
     response
         .headers()
@@ -102,6 +103,7 @@ pub fn jwt_cookie(response: &Response) -> Option<String> {
         .find(|cookie| cookie.starts_with("jwt="))
 }
 
+#[allow(dead_code)]
 pub fn assert_jwt(jwt: Option<String>) -> String {
     let Some(jwt) = jwt else { panic!("JWT cookie is missing"); };
     assert!(jwt.contains("HttpOnly;"), "JWT must be HttpOnly");

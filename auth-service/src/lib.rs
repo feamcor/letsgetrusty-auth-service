@@ -1,32 +1,32 @@
 use std::error::Error;
 use std::net::SocketAddr;
-use axum::http::StatusCode;
-use axum::response::IntoResponse;
 use axum::Router;
-use axum::routing::{get, post};
+use axum::routing::post;
 use axum::serve::Serve;
 use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 use tracing::{info, instrument};
 
+pub mod routes;
+
+#[derive(Debug)]
 pub struct Application {
     server: Serve<TcpListener, Router, Router>,
-    // address is exposed as a public field
-    // so we have access to it in tests.
-    pub address: SocketAddr,
+    pub address: SocketAddr, // exposed as public for access in tests
 }
 
 impl Application {
+    #[instrument]
     pub async fn build(address: SocketAddr) -> Result<Self, Box<dyn Error>> {
         let assets_dir = ServeDir::new("assets")
             .not_found_service(ServeFile::new("assets/index.html"));
         let apis = Router::new()
-            .route("/signup", post(signup))
-            .route("/login", post(login))
-            .route("/logout", post(logout))
-            .route("/verify-2fa", post(verify_2fa))
-            .route("/verify-token", post(verify_token));
+            .route("/signup", post(routes::signup))
+            .route("/login", post(routes::login))
+            .route("/logout", post(routes::logout))
+            .route("/verify-2fa", post(routes::verify_2fa))
+            .route("/verify-token", post(routes::verify_token));
         let router = Router::new()
             .fallback_service(assets_dir)
             .nest("/api", apis)
@@ -38,33 +38,9 @@ impl Application {
         Ok(application)
     }
 
+    #[instrument]
     pub async fn run(self) -> Result<(), std::io::Error> {
         info!("listening on {}", &self.address);
         self.server.await
     }
-}
-
-#[instrument]
-async fn signup() -> impl IntoResponse {
-    StatusCode::OK.into_response() // TODO: dummy response for task 4
-}
-
-#[instrument]
-async fn login() -> impl IntoResponse {
-    StatusCode::OK.into_response() // TODO: dummy response for task 4
-}
-
-#[instrument]
-async fn logout() -> impl IntoResponse {
-    StatusCode::OK.into_response() // TODO: dummy response for task 4
-}
-
-#[instrument]
-async fn verify_2fa() -> impl IntoResponse {
-    StatusCode::OK.into_response() // TODO: dummy response for task 4
-}
-
-#[instrument]
-async fn verify_token() -> impl IntoResponse {
-    StatusCode::OK.into_response() // TODO: dummy response for task 4
 }
