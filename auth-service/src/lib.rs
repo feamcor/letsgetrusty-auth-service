@@ -1,8 +1,8 @@
-use std::error::Error;
-use std::net::SocketAddr;
 use axum::Router;
 use axum::routing::post;
 use axum::serve::Serve;
+use std::error::Error;
+use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
@@ -17,10 +17,10 @@ pub struct Application {
 }
 
 impl Application {
-    #[instrument(level="trace")]
+    #[instrument(level = "trace")]
     pub async fn build(address: SocketAddr) -> Result<Self, Box<dyn Error>> {
-        let assets_dir = ServeDir::new("assets")
-            .not_found_service(ServeFile::new("assets/index.html"));
+        let assets_dir =
+            ServeDir::new("assets").not_found_service(ServeFile::new("assets/index.html"));
         let apis = Router::new()
             .route("/signup", post(routes::signup))
             .route("/login", post(routes::login))

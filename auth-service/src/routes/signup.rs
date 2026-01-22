@@ -1,5 +1,5 @@
-use axum::http::StatusCode;
 use axum::Json;
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use serde::Deserialize;
 use tracing::instrument;
@@ -12,7 +12,7 @@ pub struct SignupRequest {
     pub requires_2fa: bool,
 }
 
-#[instrument(level="trace")]
+#[instrument(level = "trace")]
 pub async fn signup(Json(_request): Json<SignupRequest>) -> impl IntoResponse {
     StatusCode::OK.into_response()
 }

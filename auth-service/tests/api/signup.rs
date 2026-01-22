@@ -1,6 +1,6 @@
+use crate::helpers::{TestApp, random_email};
 use reqwest::StatusCode;
 use serde_json::json;
-use crate::helpers::{random_email, TestApp};
 
 #[tokio::test]
 async fn signup_user_created_successfully() {
@@ -36,9 +36,7 @@ async fn signup_email_already_exists() {
 async fn should_return_422_if_malformed_input() {
     let app = TestApp::new().await;
     let _email = random_email();
-    let test_cases = [
-        json!({"password": "password123", "requires2FA": true}),
-    ];
+    let test_cases = [json!({"password": "password123", "requires2FA": true})];
     for test_case in test_cases.iter() {
         let response = app.post_signup(&test_case).await;
         assert_eq!(

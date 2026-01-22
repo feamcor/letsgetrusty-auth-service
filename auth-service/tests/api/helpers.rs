@@ -32,7 +32,10 @@ impl TestApp {
             .cookie_store(true)
             .build()
             .expect("Failed to build HTTP client");
-        Self { base_url: uri.to_string(), http_client }
+        Self {
+            base_url: uri.to_string(),
+            http_client,
+        }
     }
 
     pub async fn get_root(&self) -> Response {
@@ -106,10 +109,15 @@ pub fn jwt_cookie(response: &Response) -> Option<String> {
 
 #[allow(dead_code)]
 pub fn assert_jwt(jwt: Option<String>) -> String {
-    let Some(jwt) = jwt else { panic!("JWT cookie is missing"); };
+    let Some(jwt) = jwt else {
+        panic!("JWT cookie is missing");
+    };
     assert!(jwt.contains("HttpOnly;"), "JWT must be HttpOnly");
     assert!(jwt.contains("Secure;"), "JWT must be Secure");
-    assert!(jwt.contains("SameSite=Lax;"), "JWT must have SameSite=Lax set");
+    assert!(
+        jwt.contains("SameSite=Lax;"),
+        "JWT must have SameSite=Lax set"
+    );
     assert!(jwt.ends_with("Path=/"), "JWT must have Path=/ set");
     jwt
 }

@@ -1,5 +1,5 @@
-use reqwest::StatusCode;
 use crate::helpers::TestApp;
+use reqwest::StatusCode;
 
 #[tokio::test]
 async fn logout_successful() {

@@ -2,18 +2,18 @@ use std::env;
 
 use askama::Template;
 use axum::{
+    Json, Router,
     http::StatusCode,
     response::{Html, IntoResponse},
     routing::get,
-    Json, Router,
 };
 use axum_extra::extract::CookieJar;
 use serde::Serialize;
 use tower_http::services::ServeDir;
 use tracing::info;
-use tracing_subscriber::{fmt, EnvFilter};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, fmt};
 
 #[tokio::main]
 async fn main() {
