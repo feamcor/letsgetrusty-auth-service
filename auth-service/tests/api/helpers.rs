@@ -39,7 +39,7 @@ impl TestApp {
     }
 
     pub async fn get_root(&self) -> Response {
-        let request_url = format!("{}", &self.base_url);
+        let request_url = (self.base_url).to_string();
         self.http_client
             .get(&request_url)
             .send()
