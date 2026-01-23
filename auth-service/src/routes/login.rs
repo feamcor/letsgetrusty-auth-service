@@ -1,6 +1,7 @@
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use tracing::instrument;
+use tracing::Level;
 
 #[instrument(level = Level::TRACE)]
 pub async fn login() -> impl IntoResponse {

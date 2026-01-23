@@ -7,6 +7,7 @@ use axum::response::IntoResponse;
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
+use tracing::Level;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct SignupRequest {
