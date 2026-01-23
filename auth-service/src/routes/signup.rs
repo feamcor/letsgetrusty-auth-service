@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use crate::domain::{User, UserError};
-use crate::services::UserStoreError;
+use crate::services::{UserStore, UserStoreError};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -47,7 +47,7 @@ pub async fn signup(State(state): State<AppState>, Json(request): Json<SignupReq
                     (StatusCode::INTERNAL_SERVER_ERROR, response)
                 }
                 _ => {
-                    unreachable!()
+                    unreachable!() // There are other errors at UserStoreError that should not happen here
                 }
             }
         }
