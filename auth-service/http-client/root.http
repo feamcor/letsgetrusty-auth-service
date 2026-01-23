@@ -1,0 +1,7 @@
+### Root 200 Auth Service Portal #1
+GET http://{{hostname}}:{{port}}
+Accept: text/html
+
+### Root 200 Auth Service Portal #2
+GET http://{{hostname}}:{{port}}/
+Accept: text/html
