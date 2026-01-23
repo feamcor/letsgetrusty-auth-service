@@ -1,8 +1,12 @@
+use auth_service::app_state::AppState;
+use auth_service::services::HashmapUserStore;
 use auth_service::Application;
 use std::net::SocketAddr;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{fmt, EnvFilter};
 
 #[tokio::main]
 async fn main() {
@@ -10,8 +14,10 @@ async fn main() {
         .with(EnvFilter::from_default_env().add_directive(tracing::Level::INFO.into()))
         .with(fmt::layer().with_span_events(fmt::format::FmtSpan::CLOSE))
         .init();
+    let user_store = HashmapUserStore::default();
+    let app_state = AppState::new(Arc::new(RwLock::new(user_store)));
     let socket_addr = SocketAddr::from(([0, 0, 0, 0], 3000));
-    Application::build(socket_addr)
+    Application::build(app_state, socket_addr)
         .await
         .expect("Failed to build app")
         .run()

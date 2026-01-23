@@ -1,6 +1,7 @@
-use axum::Router;
+use crate::app_state::AppState;
 use axum::routing::post;
 use axum::serve::Serve;
+use axum::Router;
 use std::error::Error;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -8,7 +9,10 @@ use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 use tracing::{info, instrument};
 
+pub mod app_state;
+pub mod domain;
 pub mod routes;
+pub mod services;
 
 #[derive(Debug)]
 pub struct Application {
@@ -18,7 +22,7 @@ pub struct Application {
 
 impl Application {
     #[instrument(level = "trace")]
-    pub async fn build(address: SocketAddr) -> Result<Self, Box<dyn Error>> {
+    pub async fn build(state: AppState, address: SocketAddr) -> Result<Self, Box<dyn Error>> {
         let assets_dir =
             ServeDir::new("assets").not_found_service(ServeFile::new("assets/index.html"));
         let apis = Router::new()
@@ -30,6 +34,7 @@ impl Application {
         let router = Router::new()
             .fallback_service(assets_dir)
             .nest("/api", apis)
+            .with_state(state)
             .layer(TraceLayer::new_for_http());
         let listener = TcpListener::bind(address).await?;
         let address = listener.local_addr()?;

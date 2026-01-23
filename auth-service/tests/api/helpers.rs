@@ -1,9 +1,13 @@
+use auth_service::app_state::AppState;
+use auth_service::services::HashmapUserStore;
 use auth_service::Application;
 use axum::http::Uri;
 use reqwest::header::SET_COOKIE;
 use reqwest::{Client, Response};
 use serde::Serialize;
 use std::net::SocketAddr;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 pub struct TestApp {
@@ -13,8 +17,10 @@ pub struct TestApp {
 
 impl TestApp {
     pub async fn new() -> Self {
+        let user_store = HashmapUserStore::default();
+        let app_state = AppState::new(Arc::new(RwLock::new(user_store)));
         let socket_addr = SocketAddr::from(([127, 0, 0, 1], 0));
-        let application = Application::build(socket_addr)
+        let application = Application::build(app_state, socket_addr)
             .await
             .expect("Failed to build app");
         let socket_addr = application.address;
