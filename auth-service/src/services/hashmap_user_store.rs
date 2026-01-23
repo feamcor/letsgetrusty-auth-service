@@ -7,8 +7,9 @@ pub struct HashmapUserStore {
     users: HashMap<String, User>,
 }
 
+#[async_trait::async_trait]
 impl UserStore for HashmapUserStore {
-    fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
+    async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
         let email = user.email.to_string();
         if self.users.contains_key(&email) {
             Err(UserStoreError::UserAlreadyExists(email))
@@ -18,14 +19,14 @@ impl UserStore for HashmapUserStore {
         }
     }
 
-    fn get_user(&self, email: &str) -> Result<&User, UserStoreError> {
+    async fn get_user(&self, email: &str) -> Result<&User, UserStoreError> {
         self.users
             .get(email)
             .ok_or(UserStoreError::UserNotFound(email.to_string()))
     }
 
-    fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
-        let user = self.get_user(email)?;
+    async fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
+        let user = self.get_user(email).await?;
         if user.password.expose() == password {
             Ok(())
         } else {
@@ -46,8 +47,8 @@ mod tests {
             false).unwrap();
         let user_2 = user_1.clone();
         let mut store = HashmapUserStore::default();
-        assert!(store.add_user(user_1).is_ok());
-        assert!(store.add_user(user_2).is_err());
+        assert!(store.add_user(user_1).await.is_ok());
+        assert!(store.add_user(user_2).await.is_err());
     }
 
     #[tokio::test]
@@ -57,9 +58,9 @@ mod tests {
             "StrongPassword123!",
             false).unwrap();
         let mut store = HashmapUserStore::default();
-        store.add_user(user).unwrap();
-        assert!(store.get_user("alice@example.com").is_ok());
-        assert!(store.get_user("bob@example.com").is_err());
+        store.add_user(user).await.unwrap();
+        assert!(store.get_user("alice@example.com").await.is_ok());
+        assert!(store.get_user("bob@example.com").await.is_err());
     }
 
     #[tokio::test]
@@ -69,8 +70,8 @@ mod tests {
             "StrongPassword123!",
             false).unwrap();
         let mut store = HashmapUserStore::default();
-        store.add_user(user).unwrap();
-        assert!(store.validate_user("alice@example.com", "StrongPassword123!").is_ok());
-        assert!(store.validate_user("alice@example.com", "StrongPassword456!").is_err());
+        store.add_user(user).await.unwrap();
+        assert!(store.validate_user("alice@example.com", "StrongPassword123!").await.is_ok());
+        assert!(store.validate_user("alice@example.com", "StrongPassword456!").await.is_err());
     }
 }

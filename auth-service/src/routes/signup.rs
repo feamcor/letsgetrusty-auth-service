@@ -33,7 +33,7 @@ pub async fn signup(State(state): State<AppState>, Json(request): Json<SignupReq
     {
         Ok(user) => {
             let store = &mut state.user_store.write().await;
-            match store.add_user(user) {
+            match store.add_user(user).await {
                 Ok(()) => {
                     let response = Json(SignupResponse::Message("User created successfully!".to_string()));
                     (StatusCode::CREATED, response)
