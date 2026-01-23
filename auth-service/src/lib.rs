@@ -22,30 +22,37 @@ pub struct Application {
 }
 
 impl Application {
-    #[instrument(level = Level::TRACE)]
+    #[instrument(level = Level::INFO, skip(state))]
     pub async fn build(state: AppState, address: SocketAddr) -> Result<Self, Box<dyn Error>> {
         let assets_dir =
             ServeDir::new("assets").not_found_service(ServeFile::new("assets/index.html"));
+        info!("Initialized: Assets directory");
         let apis = Router::new()
             .route("/signup", post(routes::signup))
             .route("/login", post(routes::login))
             .route("/logout", post(routes::logout))
             .route("/verify-2fa", post(routes::verify_2fa))
             .route("/verify-token", post(routes::verify_token));
+        info!("Initialized: API routes");
         let router = Router::new()
             .fallback_service(assets_dir)
             .nest("/api", apis)
             .with_state(state)
             .layer(TraceLayer::new_for_http());
+        info!("Initialized: Router");
         let listener = TcpListener::bind(address).await?;
         let address = listener.local_addr()?;
+        info!("Initialized: Listener");
         let server = axum::serve(listener, router);
+        info!("Initialized: Server");
         let application = Self { server, address };
+        info!("Initialized: Application");
         Ok(application)
     }
 
+    #[instrument(level = Level::INFO, skip(self))]
     pub async fn run(self) -> Result<(), std::io::Error> {
-        info!("listening on {}", &self.address);
+        info!("Server listening on {}", self.address);
         self.server.await
     }
 }
