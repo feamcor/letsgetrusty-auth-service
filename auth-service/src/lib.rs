@@ -7,6 +7,7 @@ use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
+use tracing::Level;
 use tracing::{info, instrument};
 
 pub mod app_state;
@@ -21,7 +22,7 @@ pub struct Application {
 }
 
 impl Application {
-    #[instrument(level = "trace")]
+    #[instrument(level = Level::TRACE)]
     pub async fn build(state: AppState, address: SocketAddr) -> Result<Self, Box<dyn Error>> {
         let assets_dir =
             ServeDir::new("assets").not_found_service(ServeFile::new("assets/index.html"));

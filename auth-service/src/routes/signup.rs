@@ -23,7 +23,7 @@ pub enum SignupResponse {
     Error(String),
 }
 
-#[instrument(level = "trace")]
+#[instrument(level = Level::TRACE)]
 pub async fn signup(State(state): State<AppState>, Json(request): Json<SignupRequest>) -> impl IntoResponse {
     match User::try_new(
         request.email.as_str(),
