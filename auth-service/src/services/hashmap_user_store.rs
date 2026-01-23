@@ -1,26 +1,14 @@
 use crate::domain::User;
+use crate::services::{UserStore, UserStoreError};
 use std::collections::HashMap;
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum UserStoreError {
-    #[error("User {0} already exists")]
-    UserAlreadyExists(String),
-    #[error("User {0} was not found")]
-    UserNotFound(String),
-    #[error("User {0} invalid credentials")]
-    InvalidCredentials(String),
-    #[error("Unexpected error")]
-    UnexpectedError,
-}
 
 #[derive(Debug, Default)]
 pub struct HashmapUserStore {
     users: HashMap<String, User>,
 }
 
-impl HashmapUserStore {
-    pub fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
+impl UserStore for HashmapUserStore {
+    fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
         let email = user.email.to_string();
         if self.users.contains_key(&email) {
             Err(UserStoreError::UserAlreadyExists(email))
@@ -30,13 +18,13 @@ impl HashmapUserStore {
         }
     }
 
-    pub fn get_user(&self, email: &str) -> Result<&User, UserStoreError> {
+    fn get_user(&self, email: &str) -> Result<&User, UserStoreError> {
         self.users
             .get(email)
             .ok_or(UserStoreError::UserNotFound(email.to_string()))
     }
 
-    pub fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
+    fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
         let user = self.get_user(email)?;
         if user.password.expose() == password {
             Ok(())
