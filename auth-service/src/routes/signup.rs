@@ -51,7 +51,7 @@ pub async fn signup(State(state): State<AppState>, Json(request): Json<SignupReq
                 }
             }
         }
-        Err(UserError::InvalidEmailAddress(error)) => {
+        Err(UserError::InvalidEmail(error)) => {
             let response = Json(SignupResponse::Error(format!("Invalid email: {}", error)));
             (StatusCode::BAD_REQUEST, response)
         }
