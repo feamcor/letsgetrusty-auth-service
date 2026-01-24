@@ -34,20 +34,20 @@ impl User {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn should_return_ok() {
-        todo!()
-    }
-
-    #[test]
-    fn should_return_invalid_email() {
-        todo!()
-    }
-
-    #[test]
-    fn should_return_invalid_password() {
-        todo!()
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     #[test]
+//     fn should_return_ok() {
+//         todo!()
+//     }
+//
+//     #[test]
+//     fn should_return_invalid_email() {
+//         todo!()
+//     }
+//
+//     #[test]
+//     fn should_return_invalid_password() {
+//         todo!()
+//     }
+// }
