@@ -83,7 +83,7 @@ paths:
                 properties:
                   error:
                     type: string
-          
+  
   /login:
     post:
       summary: Authenticate user and return JWT

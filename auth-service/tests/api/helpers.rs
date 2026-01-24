@@ -1,9 +1,13 @@
+use auth_service::app_state::AppState;
+use auth_service::services::HashmapUserStore;
 use auth_service::Application;
 use axum::http::Uri;
 use reqwest::header::SET_COOKIE;
 use reqwest::{Client, Response};
 use serde::Serialize;
 use std::net::SocketAddr;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 pub struct TestApp {
@@ -13,8 +17,10 @@ pub struct TestApp {
 
 impl TestApp {
     pub async fn new() -> Self {
+        let user_store = HashmapUserStore::default();
+        let app_state = AppState::new(Arc::new(RwLock::new(user_store)));
         let socket_addr = SocketAddr::from(([127, 0, 0, 1], 0));
-        let application = Application::build(socket_addr)
+        let application = Application::build(app_state, socket_addr)
             .await
             .expect("Failed to build app");
         let socket_addr = application.address;
@@ -32,11 +38,14 @@ impl TestApp {
             .cookie_store(true)
             .build()
             .expect("Failed to build HTTP client");
-        Self { base_url: uri.to_string(), http_client }
+        Self {
+            base_url: uri.to_string(),
+            http_client,
+        }
     }
 
     pub async fn get_root(&self) -> Response {
-        let request_url = format!("{}", &self.base_url);
+        let request_url = (self.base_url).to_string();
         self.http_client
             .get(&request_url)
             .send()
@@ -106,10 +115,15 @@ pub fn jwt_cookie(response: &Response) -> Option<String> {
 
 #[allow(dead_code)]
 pub fn assert_jwt(jwt: Option<String>) -> String {
-    let Some(jwt) = jwt else { panic!("JWT cookie is missing"); };
+    let Some(jwt) = jwt else {
+        panic!("JWT cookie is missing");
+    };
     assert!(jwt.contains("HttpOnly;"), "JWT must be HttpOnly");
     assert!(jwt.contains("Secure;"), "JWT must be Secure");
-    assert!(jwt.contains("SameSite=Lax;"), "JWT must have SameSite=Lax set");
+    assert!(
+        jwt.contains("SameSite=Lax;"),
+        "JWT must have SameSite=Lax set"
+    );
     assert!(jwt.ends_with("Path=/"), "JWT must have Path=/ set");
     jwt
 }

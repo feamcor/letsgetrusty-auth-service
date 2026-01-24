@@ -1,6 +1,6 @@
+use crate::helpers::TestApp;
 use reqwest::StatusCode;
 use serde_json::json;
-use crate::helpers::TestApp;
 
 #[tokio::test]
 async fn login_successful() {

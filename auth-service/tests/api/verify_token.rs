@@ -1,6 +1,6 @@
+use crate::helpers::TestApp;
 use reqwest::StatusCode;
 use serde_json::json;
-use crate::helpers::TestApp;
 
 #[tokio::test]
 async fn verify_token_is_valid() {

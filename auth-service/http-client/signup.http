@@ -1,0 +1,92 @@
+### Signup 422 Missing email
+POST http://{{hostname}}:{{port}}/api/signup
+Content-Type: application/json
+
+{
+  "password": "password123",
+  "requires2FA": true
+}
+
+### Signup 422 Missing password
+POST http://{{hostname}}:{{port}}/api/signup
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "requires2FA": true
+}
+
+### Signup 422 Missing requires2FA
+POST http://{{hostname}}:{{port}}/api/signup
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+
+### Signup 422 Empty JSON Object
+POST http://{{hostname}}:{{port}}/api/signup
+Content-Type: application/json
+
+{}
+
+### Signup 400 Empty Payload
+POST http://{{hostname}}:{{port}}/api/signup
+Content-Type: application/json
+
+### Signup 422 Invalid JSON Literal Payload
+POST http://{{hostname}}:{{port}}/api/signup
+Content-Type: application/json
+
+1
+
+### Signup 400 Invalid JSON Literal
+POST http://{{hostname}}:{{port}}/api/signup
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123",
+  "requires2FA": truth
+}
+
+### Signup 422 Invalid Boolean Literal
+POST http://{{hostname}}:{{port}}/api/signup
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123",
+  "requires2FA": 1
+}
+
+### Signup 422 Null Values
+POST http://{{hostname}}:{{port}}/api/signup
+Content-Type: application/json
+
+{
+  "email": null,
+  "password": null,
+  "requires2FA": false
+}
+
+### Signup 400 Empty Strings
+POST http://{{hostname}}:{{port}}/api/signup
+Content-Type: application/json
+
+{
+  "email": "",
+  "password": "",
+  "requires2FA": false
+}
+
+### Signup 201
+POST http://{{hostname}}:{{port}}/api/signup
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "StrongPassword123!",
+  "requires2FA": true
+}

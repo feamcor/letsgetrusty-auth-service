@@ -2,18 +2,18 @@ use std::env;
 
 use askama::Template;
 use axum::{
+    Json, Router,
     http::StatusCode,
     response::{Html, IntoResponse},
     routing::get,
-    Json, Router,
 };
 use axum_extra::extract::CookieJar;
 use serde::Serialize;
 use tower_http::services::ServeDir;
 use tracing::info;
-use tracing_subscriber::{fmt, EnvFilter};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, fmt};
 
 #[tokio::main]
 async fn main() {
@@ -80,10 +80,10 @@ async fn protected(jar: CookieJar) -> impl IntoResponse {
     };
 
     match response.status() {
-        reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::BAD_REQUEST => {
+        StatusCode::UNAUTHORIZED | StatusCode::BAD_REQUEST => {
             StatusCode::UNAUTHORIZED.into_response()
         }
-        reqwest::StatusCode::OK => Json(ProtectedRouteResponse {
+        StatusCode::OK => Json(ProtectedRouteResponse {
             img_url: "https://i.ibb.co/YP90j68/Light-Live-Bootcamp-Certificate.png".to_owned(),
         })
         .into_response(),
