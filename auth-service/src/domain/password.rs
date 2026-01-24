@@ -7,6 +7,7 @@ struct Metrics {
     lower: usize,
     digits: usize,
     special: usize,
+    invalid: usize,
 }
 
 const SPECIAL_CHARS: &str = "!@#$%&*-_=+";
@@ -28,6 +29,8 @@ fn analyze_password(password: &str) -> Metrics {
             metrics.digits += 1;
         } else if SPECIAL_CHARS.contains(c) {
             metrics.special += 1;
+        } else {
+            metrics.invalid += 1;
         }
     }
     metrics
@@ -41,6 +44,8 @@ pub enum PasswordError {
     TooLong,
     #[error("Password is weak")]
     Weak,
+    #[error("Password contains invalid characters")]
+    InvalidChars,
 }
 
 #[derive(Debug, Clone)]
@@ -54,7 +59,10 @@ impl Password {
         if raw.len() > MAX_PASSWORD_LENGTH {
             return Err(PasswordError::TooLong);
         }
-        let metrics = analyze_password(&raw);
+        let metrics = analyze_password(raw);
+        if metrics.invalid > 0 {
+            return Err(PasswordError::InvalidChars);
+        }
         if metrics.upper < MIN_UPPERCASE_CHARS ||
             metrics.lower < MIN_LOWERCASE_CHARS ||
             metrics.digits < MIN_DIGITS ||
@@ -77,6 +85,11 @@ mod tests {
     #[test]
     fn test_password_validation() {
         assert!(Password::parse("StrongPassword123!").is_ok());
+        assert!(Password::parse("^_Strong( Password )123_$").is_err());
+        assert!(Password::parse("PaSs12!!^").is_err());
+        assert!(Password::parse("PaSs 12!!").is_err());
+        assert!(Password::parse("PaSs12! ").is_err());
+        assert!(Password::parse(" PaSs12!").is_err());
         assert!(Password::parse("1234567").is_err());
         assert!(Password::parse("12345678901234567890123456789012345678901234567890123456789012345").is_err());
         assert!(Password::parse("Weak123!").is_err());
