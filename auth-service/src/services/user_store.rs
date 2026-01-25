@@ -3,14 +3,14 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum UserStoreError {
-    #[error("User {0} already exists")]
+    #[error("User already exists: {0}")]
     UserAlreadyExists(String),
-    #[error("User {0} was not found")]
+    #[error("User was not found: {0}")]
     UserNotFound(String),
-    #[error("User {0} invalid credentials")]
+    #[error("User invalid credentials: {0}")]
     InvalidCredentials(String),
-    #[error("Unexpected error")]
-    UnexpectedError,
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
 }
 
 #[async_trait::async_trait]

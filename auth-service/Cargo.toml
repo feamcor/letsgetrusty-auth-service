@@ -18,6 +18,7 @@ email_address = "0.2.9"
 thiserror = "2.0.18"
 secrecy = "0.10.3"
 async-trait = "0.1.89"
+anyhow = "1.0.100"
 
 [dev-dependencies]
 reqwest = { version = "0.13.1", default-features = false, features = ["json", "cookies"] }
