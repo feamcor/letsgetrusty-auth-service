@@ -1,7 +1,11 @@
 use crate::helpers::TestApp;
-use mime::APPLICATION_JSON;
-use reqwest::header::CONTENT_TYPE;
 use reqwest::StatusCode;
+
+#[allow(unused_imports)]
+use mime::APPLICATION_JSON;
+
+#[allow(unused_imports)]
+use reqwest::header::CONTENT_TYPE;
 
 #[tokio::test]
 async fn logout_successful() {
