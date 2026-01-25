@@ -35,6 +35,7 @@ dependencies = [
  "async-trait",
  "axum",
  "email_address",
+ "mime",
  "reqwest",
  "secrecy",
  "serde",

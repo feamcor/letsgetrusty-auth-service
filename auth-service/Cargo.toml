@@ -21,3 +21,4 @@ async-trait = "0.1.89"
 
 [dev-dependencies]
 reqwest = { version = "0.13.1", default-features = false, features = ["json", "cookies"] }
+mime = "0.3.17"
