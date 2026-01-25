@@ -7,6 +7,8 @@ use axum::response::IntoResponse;
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
+
+#[allow(unused_imports)]
 use tracing::Level;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]

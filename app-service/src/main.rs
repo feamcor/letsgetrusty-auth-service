@@ -40,6 +40,7 @@ struct IndexTemplate {
     logout_link: String,
 }
 
+//noinspection HttpUrlsUsage
 async fn root() -> impl IntoResponse {
     let mut address = env::var("AUTH_SERVICE_IP").unwrap_or("localhost".to_owned());
     if address.is_empty() {
@@ -55,6 +56,7 @@ async fn root() -> impl IntoResponse {
     Html(template.render().unwrap())
 }
 
+//noinspection HttpUrlsUsage
 async fn protected(jar: CookieJar) -> impl IntoResponse {
     let jwt_cookie = match jar.get("jwt") {
         Some(cookie) => cookie,
