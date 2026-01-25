@@ -15,8 +15,6 @@ pub enum UserError {
     InvalidEmail(email_address::Error),
     #[error("Invalid password: {0}")]
     InvalidPassword(PasswordError),
-    #[error("Unexpected error")]
-    UnexpectedError,
 }
 
 impl User {
