@@ -21,13 +21,13 @@ pub enum LogLevel {
 }
 
 impl Display for LogLevel {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            LogLevel::Trace => write!(f, "trace"),
-            LogLevel::Debug => write!(f, "debug"),
-            LogLevel::Info => write!(f, "info"),
-            LogLevel::Warn => write!(f, "warn"),
-            LogLevel::Error => write!(f, "error"),
+            LogLevel::Trace => write!(formatter, "trace"),
+            LogLevel::Debug => write!(formatter, "debug"),
+            LogLevel::Info => write!(formatter, "info"),
+            LogLevel::Warn => write!(formatter, "warn"),
+            LogLevel::Error => write!(formatter, "error"),
         }
     }
 }
