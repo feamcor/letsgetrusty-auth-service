@@ -23,7 +23,7 @@ pub struct Application {
 }
 
 impl Application {
-    #[instrument(level = Level::INFO, skip(state))]
+    #[instrument(level = Level::TRACE, skip(state))]
     pub async fn build(state: AppState, address: SocketAddr) -> Result<Self, Box<dyn Error>> {
         let assets_dir =
             ServeDir::new("assets").not_found_service(ServeFile::new("assets/index.html"));
@@ -52,7 +52,7 @@ impl Application {
         Ok(application)
     }
 
-    #[instrument(level = Level::INFO, skip(self))]
+    #[instrument(level = Level::TRACE, skip(self))]
     pub async fn run(self) -> Result<(), std::io::Error> {
         info!("Server listening on {}", self.address);
         self.server.with_graceful_shutdown(shutdown_signal()).await
