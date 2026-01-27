@@ -24,11 +24,11 @@ impl User {
             allow_domain_literal: false,
             allow_display_text: false,
         };
-        let email = EmailAddress::parse_with_options(email, options)
+        let email_address = EmailAddress::parse_with_options(email, options)
             .map_err(UserError::InvalidEmail)?;
-        let password = Password::parse(password)
+        let password = Password::parse(password, email)
             .map_err(UserError::InvalidPassword)?;
-        Ok(Self { email, password, requires_2fa })
+        Ok(Self { email: email_address, password, requires_2fa })
     }
 }
 
