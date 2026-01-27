@@ -1,5 +1,7 @@
 use crate::helpers::{random_email, TestApp};
 use auth_service::routes::SignupResponse;
+use mime::APPLICATION_JSON;
+use reqwest::header::CONTENT_TYPE;
 use reqwest::StatusCode;
 use serde_json::{json, Value};
 
@@ -22,7 +24,7 @@ async fn should_return_201_if_valid_input() {
     for request in requests.iter() {
         let response = app.post_signup(&request).await;
         assert_eq!(response.status(), StatusCode::CREATED);
-        assert_eq!(response.headers().get("content-type").unwrap(), "application/json");
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
         assert_eq!(response.json::<SignupResponse>().await.unwrap(), expected);
     }
 }
@@ -45,7 +47,7 @@ async fn should_return_400_if_invalid_input() {
     for request in requests.iter() {
         let response = app.post_signup(&request).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST, "Input: {:?}", request);
-        assert_eq!(response.headers().get("content-type").unwrap(), "application/json");
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
     }
 }
 
@@ -59,11 +61,11 @@ async fn should_return_409_if_user_already_exists() {
     });
     let response = app.post_signup(&request).await;
     assert_eq!(response.status(), StatusCode::CREATED);
-    assert_eq!(response.headers().get("content-type").unwrap(), "application/json");
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
 
     let response = app.post_signup(&request).await;
     assert_eq!(response.status(), StatusCode::CONFLICT);
-    assert_eq!(response.headers().get("content-type").unwrap(), "application/json");
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
 }
 
 #[tokio::test]
@@ -90,6 +92,6 @@ async fn should_return_500_if_unexpected_error() {
     for request in requests.iter() {
         let response = app.post_signup(&request).await;
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR, "Input: {:?}", request);
-        assert_eq!(response.headers().get("content-type").unwrap(), "application/json");
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
     }
 }

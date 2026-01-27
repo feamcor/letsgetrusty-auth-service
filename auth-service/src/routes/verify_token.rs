@@ -1,6 +1,8 @@
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use tracing::instrument;
+
+#[allow(unused_imports)]
 use tracing::Level;
 
 #[instrument(level = Level::TRACE)]

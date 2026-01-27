@@ -1,40 +1,12 @@
 use secrecy::{ExposeSecret, SecretString};
 use thiserror::Error;
+use zxcvbn::{zxcvbn, Score};
 
-#[derive(Debug, Default)]
-struct Metrics {
-    upper: usize,
-    lower: usize,
-    digits: usize,
-    special: usize,
-    invalid: usize,
-}
-
-const SPECIAL_CHARS: &str = "!@#$%&*-_=+";
+// NIST Special Publication 800-63B
+// Section 3.1.1.2 Password Verifiers
+// https://pages.nist.gov/800-63-4/sp800-63b.html
 const MIN_PASSWORD_LENGTH: usize = 8;
 const MAX_PASSWORD_LENGTH: usize = 64;
-const MIN_SPECIAL_CHARS: usize = 1;
-const MIN_UPPERCASE_CHARS: usize = 2;
-const MIN_LOWERCASE_CHARS: usize = 2;
-const MIN_DIGITS: usize = 2;
-
-fn analyze_password(password: &str) -> Metrics {
-    let mut metrics = Metrics::default();
-    for c in password.chars() {
-        if c.is_ascii_uppercase() {
-            metrics.upper += 1;
-        } else if c.is_ascii_lowercase() {
-            metrics.lower += 1;
-        } else if c.is_ascii_digit() {
-            metrics.digits += 1;
-        } else if SPECIAL_CHARS.contains(c) {
-            metrics.special += 1;
-        } else {
-            metrics.invalid += 1;
-        }
-    }
-    metrics
-}
 
 #[derive(Error, Debug)]
 pub enum PasswordError {
@@ -44,32 +16,26 @@ pub enum PasswordError {
     TooLong,
     #[error("Password is weak")]
     Weak,
-    #[error("Password contains invalid characters")]
-    InvalidChars,
 }
 
 #[derive(Debug, Clone)]
 pub struct Password(SecretString);
 
 impl Password {
-    pub fn parse(raw: &str) -> Result<Self, PasswordError> {
+    pub fn parse(raw: &str, user: &str) -> Result<Self, PasswordError> {
         if raw.len() < MIN_PASSWORD_LENGTH {
             return Err(PasswordError::TooShort);
         }
         if raw.len() > MAX_PASSWORD_LENGTH {
             return Err(PasswordError::TooLong);
         }
-        let metrics = analyze_password(raw);
-        if metrics.invalid > 0 {
-            return Err(PasswordError::InvalidChars);
-        }
-        if metrics.upper < MIN_UPPERCASE_CHARS ||
-            metrics.lower < MIN_LOWERCASE_CHARS ||
-            metrics.digits < MIN_DIGITS ||
-            metrics.special < MIN_SPECIAL_CHARS
-        {
+
+        let entropy = zxcvbn(raw, &[user]);
+        // Score 3 mean that the password can be cracked with 10^10 guesses or fewer.
+        if entropy.score() < Score::Three {
             return Err(PasswordError::Weak);
         }
+
         Ok(Self(SecretString::from(raw)))
     }
 
@@ -81,26 +47,56 @@ impl Password {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fake::faker::internet::en::SafeEmail;
+    use fake::Fake;
+    use quickcheck_macros::quickcheck;
+
+    const VALID_PASSWORD: &str = "CorrectHorseBatteryStaple123!";
 
     #[test]
-    fn test_password_validation() {
-        assert!(Password::parse("StrongPassword123!").is_ok());
-        assert!(Password::parse("^_Strong( Password )123_$").is_err());
-        assert!(Password::parse("PaSs12!!^").is_err());
-        assert!(Password::parse("PaSs 12!!").is_err());
-        assert!(Password::parse("PaSs12! ").is_err());
-        assert!(Password::parse(" PaSs12!").is_err());
-        assert!(Password::parse("1234567").is_err());
-        assert!(Password::parse("12345678901234567890123456789012345678901234567890123456789012345").is_err());
-        assert!(Password::parse("Weak123!").is_err());
-        assert!(Password::parse("WEAk123!").is_err());
-        assert!(Password::parse("WeaK1__!").is_err());
-        assert!(Password::parse("WeaK1234").is_err());
+    fn test_password_too_short() {
+        let user: String = SafeEmail().fake();
+        let password = "a".repeat(MIN_PASSWORD_LENGTH - 1);
+        let result = Password::parse(&password, &user);
+        assert!(matches!(result, Err(PasswordError::TooShort)));
+    }
+
+    #[test]
+    fn test_password_too_long() {
+        let user: String = SafeEmail().fake();
+        let password = "a".repeat(MAX_PASSWORD_LENGTH + 1);
+        let result = Password::parse(&password, &user);
+        assert!(matches!(result, Err(PasswordError::TooLong)));
+    }
+
+    #[test]
+    fn test_password_weak() {
+        let user: String = SafeEmail().fake();
+        assert!(matches!(Password::parse("password123", &user), Err(PasswordError::Weak)));
+        assert!(matches!(Password::parse("12345678", &user), Err(PasswordError::Weak)));
+        assert!(matches!(Password::parse("qwertyuiop", &user), Err(PasswordError::Weak)));
+    }
+
+    #[test]
+    fn test_password_valid() {
+        let user: String = SafeEmail().fake();
+        let password = VALID_PASSWORD;
+        let result = Password::parse(password, &user);
+        assert!(result.is_ok());
     }
 
     #[test]
     fn test_password_exposure() {
-        let password = Password::parse("StrongPassword123!").unwrap();
-        assert_eq!(password.expose(), "StrongPassword123!");
+        let user: String = SafeEmail().fake();
+        let password_str = VALID_PASSWORD;
+        let password = Password::parse(password_str, &user).unwrap();
+        assert_eq!(password.expose(), password_str);
+    }
+
+    #[quickcheck]
+    fn prop_password_parse_never_panics(password: String) -> bool {
+        let user: String = SafeEmail().fake();
+        let _ = Password::parse(&password, &user);
+        true
     }
 }

@@ -6,7 +6,9 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use serde::{Deserialize, Serialize};
-use tracing::instrument;
+use tracing::{error, instrument};
+
+#[allow(unused_imports)]
 use tracing::Level;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -42,7 +44,8 @@ pub async fn signup(State(state): State<AppState>, Json(request): Json<SignupReq
                     let response = Json(SignupResponse::Error("User already exists".to_string()));
                     (StatusCode::CONFLICT, response)
                 }
-                Err(UserStoreError::UnexpectedError) => {
+                Err(UserStoreError::UnexpectedError(error)) => {
+                    error!("Unexpected error when adding user to store: {}", error);
                     let response = Json(SignupResponse::Error("Unexpected error".to_string()));
                     (StatusCode::INTERNAL_SERVER_ERROR, response)
                 }
@@ -58,10 +61,6 @@ pub async fn signup(State(state): State<AppState>, Json(request): Json<SignupReq
         Err(UserError::InvalidPassword(error)) => {
             let response = Json(SignupResponse::Error(format!("Invalid password: {}", error)));
             (StatusCode::BAD_REQUEST, response)
-        }
-        Err(UserError::UnexpectedError) => {
-            let response = Json(SignupResponse::Error("Unexpected error".to_string()));
-            (StatusCode::INTERNAL_SERVER_ERROR, response)
         }
     }
 }
