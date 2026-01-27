@@ -1,0 +1,3 @@
+### Health 200
+GET http://{{hostname}}:{{port}}/health
+Accept: text/html
