@@ -1,13 +1,11 @@
-use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use crate::app_state::AppState;
 use tracing::instrument;
 
 #[allow(unused_imports)]
 use tracing::Level;
 
 #[instrument(level = Level::TRACE)]
-pub async fn health(State(state): State<AppState>) -> impl IntoResponse {
+pub async fn health() -> impl IntoResponse {
     StatusCode::OK.into_response()
 }
