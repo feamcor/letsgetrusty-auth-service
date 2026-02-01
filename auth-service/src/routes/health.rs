@@ -8,6 +8,6 @@ use tracing::instrument;
 use tracing::Level;
 
 #[instrument(level = Level::TRACE)]
-pub async fn health(State(_state): State<AppState>) -> impl IntoResponse {
+pub async fn health(State(state): State<AppState>) -> impl IntoResponse {
     StatusCode::OK.into_response()
 }

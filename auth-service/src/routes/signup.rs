@@ -55,11 +55,11 @@ pub async fn signup(State(state): State<AppState>, Json(request): Json<SignupReq
             }
         }
         Err(UserError::InvalidEmail(error)) => {
-            let response = Json(SignupResponse::Error(format!("Invalid email: {}", error)));
+            let response = Json(SignupResponse::Error(format!("Invalid email: {error}")));
             (StatusCode::BAD_REQUEST, response)
         }
         Err(UserError::InvalidPassword(error)) => {
-            let response = Json(SignupResponse::Error(format!("Invalid password: {}", error)));
+            let response = Json(SignupResponse::Error(format!("Invalid password: {error}")));
             (StatusCode::BAD_REQUEST, response)
         }
     }

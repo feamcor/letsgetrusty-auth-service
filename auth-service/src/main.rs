@@ -52,5 +52,5 @@ async fn main() {
         .expect("Failed to build app")
         .run()
         .await
-        .expect("Failed to run app")
+        .expect("Failed to run app");
 }

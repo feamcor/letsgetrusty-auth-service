@@ -39,6 +39,7 @@ impl Password {
         Ok(Self(SecretString::from(raw)))
     }
 
+    #[must_use]
     pub fn expose(&self) -> &str {
         self.0.expose_secret()
     }
