@@ -9,6 +9,7 @@ pub struct HashmapUserStore {
 
 #[async_trait::async_trait]
 impl UserStore for HashmapUserStore {
+    #[allow(clippy::map_entry)]
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
         let email = user.email.to_string();
         if self.users.contains_key(&email) {
