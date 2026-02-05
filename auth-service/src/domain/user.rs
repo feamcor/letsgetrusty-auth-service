@@ -24,36 +24,41 @@ impl User {
             allow_domain_literal: false,
             allow_display_text: false,
         };
-        let email_address = EmailAddress::parse_with_options(email, options)
-            .map_err(UserError::InvalidEmail)?;
-        let password = Password::parse(password, email)
-            .map_err(UserError::InvalidPassword)?;
-        Ok(Self { email: email_address, password, requires_2fa })
+        let email_address =
+            EmailAddress::parse_with_options(email, options).map_err(UserError::InvalidEmail)?;
+        let password = Password::parse(password, email).map_err(UserError::InvalidPassword)?;
+        Ok(Self {
+            email: email_address,
+            password,
+            requires_2fa,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fake::faker::internet::en::SafeEmail;
-    use fake::{rand, Fake};
-
-    const VALID_PASSWORD: &str = "StrongPassword123!";
-    const INVALID_PASSWORD: &str = "Weak!";
+    use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
+    use fake::{Fake, rand};
 
     #[test]
     fn should_return_ok_for_valid_input() {
         let email: String = SafeEmail().fake();
-        let password = VALID_PASSWORD;
+        let password: String = Password(8..64).fake();
         let requires_2fa = rand::random();
-        let result = User::try_new(&email, password, requires_2fa);
-        assert!(result.is_ok(), "Failed for email: {} and password: {}", email, password);
+        let result = User::try_new(&email, &password, requires_2fa);
+        assert!(
+            result.is_ok(),
+            "Failed for email: {} and password: {}",
+            email,
+            password
+        );
     }
 
     #[test]
     fn should_return_error_for_empty_email() {
         let email = "";
-        let password = VALID_PASSWORD;
+        let password: String = Password(8..64).fake();
         let requires_2fa = rand::random();
         let result = User::try_new(email, &password, requires_2fa);
         assert!(matches!(result, Err(UserError::InvalidEmail(_))));
@@ -70,19 +75,19 @@ mod tests {
 
     #[test]
     fn should_return_invalid_email_error() {
-        let email = "invalid-email";
-        let password = VALID_PASSWORD;
+        let email: String = DomainSuffix().fake();
+        let password: String = Password(8..64).fake();
         let requires_2fa = rand::random();
-        let result = User::try_new(email, password, requires_2fa);
+        let result = User::try_new(&email, &password, requires_2fa);
         assert!(matches!(result, Err(UserError::InvalidEmail(_))));
     }
 
     #[test]
     fn should_return_invalid_password_error() {
         let email: String = SafeEmail().fake();
-        let password = INVALID_PASSWORD;
+        let password: String = Password(1..7).fake();
         let requires_2fa = rand::random();
-        let result = User::try_new(&email, password, requires_2fa);
+        let result = User::try_new(&email, &password, requires_2fa);
         assert!(matches!(result, Err(UserError::InvalidPassword(_))));
     }
 }

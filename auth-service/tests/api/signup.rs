@@ -1,5 +1,7 @@
-use crate::helpers::{random_email, TestApp};
+use crate::helpers::TestApp;
 use auth_service::routes::SignupResponse;
+use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
+use fake::Fake;
 use mime::APPLICATION_JSON;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::StatusCode;
@@ -7,24 +9,27 @@ use serde_json::{json, Value};
 
 #[tokio::test]
 async fn should_return_201_if_valid_input() {
-    let expected = SignupResponse::Message("User created successfully!".to_string());
+    let expected = SignupResponse::Message("User created successfully".to_string());
     let app = TestApp::new().await;
     let requests = [
         json!({
-            "email": "alice@example.com",
-            "password": "StrongPassword123!",
+            "email": SafeEmail().fake::<String>().as_str(),
+            "password": Password(8..64).fake::<String>().as_str(),
             "requires2FA": false,
         }),
         json!({
-            "email": "bob@example.com",
-            "password": "StrongPassword456!",
+            "email": SafeEmail().fake::<String>().as_str(),
+            "password": Password(8..64).fake::<String>().as_str(),
             "requires2FA": true,
         }),
     ];
     for request in requests.iter() {
         let response = app.post_signup(&request).await;
         assert_eq!(response.status(), StatusCode::CREATED);
-        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE).unwrap(),
+            APPLICATION_JSON.as_ref()
+        );
         assert_eq!(response.json::<SignupResponse>().await.unwrap(), expected);
     }
 }
@@ -34,20 +39,28 @@ async fn should_return_400_if_invalid_input() {
     let app = TestApp::new().await;
     let requests = [
         json!({
-            "email": "example.com",
-            "password": "StrongPassword123!",
+            "email": DomainSuffix().fake::<String>().as_str(),
+            "password": Password(8..64).fake::<String>().as_str(),
             "requires2FA": false,
         }),
         json!({
-            "email": "alice@example.com",
-            "password": "Weak!",
+            "email": SafeEmail().fake::<String>().as_str(),
+            "password": Password(1..7).fake::<String>().as_str(),
             "requires2FA": false,
         }),
     ];
     for request in requests.iter() {
         let response = app.post_signup(&request).await;
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "Input: {:?}", request);
-        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
+        assert_eq!(
+            response.status(),
+            StatusCode::BAD_REQUEST,
+            "Input: {:?}",
+            request
+        );
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE).unwrap(),
+            APPLICATION_JSON.as_ref()
+        );
     }
 }
 
@@ -55,25 +68,51 @@ async fn should_return_400_if_invalid_input() {
 async fn should_return_409_if_user_already_exists() {
     let app = TestApp::new().await;
     let request = json!({
-        "email": "alice@example.com",
-        "password": "StrongPassword123!",
+        "email": SafeEmail().fake::<String>().as_str(),
+        "password": Password(8..64).fake::<String>().as_str(),
         "requires2FA": false,
     });
     let response = app.post_signup(&request).await;
     assert_eq!(response.status(), StatusCode::CREATED);
-    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        APPLICATION_JSON.as_ref()
+    );
 
     let response = app.post_signup(&request).await;
     assert_eq!(response.status(), StatusCode::CONFLICT);
-    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        APPLICATION_JSON.as_ref()
+    );
 }
 
 #[tokio::test]
 async fn should_return_422_if_unprocessable_content() {
     let app = TestApp::new().await;
-    let _email = random_email();
     let requests = [
-        json!({"password": "password123", "requires2FA": true})];
+        json!({
+            "email": SafeEmail().fake::<String>().as_str(),
+            "password": Password(8..64).fake::<String>().as_str()
+        }),
+        json!({
+            "password": Password(8..64).fake::<String>().as_str(),
+            "requires2FA": false
+        }),
+        json!({
+            "email": SafeEmail().fake::<String>().as_str(),
+            "requires2FA": false
+        }),
+        json!({
+            "email": SafeEmail().fake::<String>().as_str()
+        }),
+        json!({
+            "password": Password(8..64).fake::<String>().as_str()
+        }),
+        json!({
+            "requires2FA": false
+        }),
+    ];
     for request in requests.iter() {
         let response = app.post_signup(&request).await;
         assert_eq!(
@@ -91,7 +130,15 @@ async fn should_return_500_if_unexpected_error() {
     let requests: [Value; 0] = [];
     for request in requests.iter() {
         let response = app.post_signup(&request).await;
-        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR, "Input: {:?}", request);
-        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
+        assert_eq!(
+            response.status(),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Input: {:?}",
+            request
+        );
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE).unwrap(),
+            APPLICATION_JSON.as_ref()
+        );
     }
 }

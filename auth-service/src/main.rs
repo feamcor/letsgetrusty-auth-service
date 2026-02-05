@@ -1,9 +1,9 @@
 mod config;
 
 use crate::config::Config;
+use auth_service::Application;
 use auth_service::app_state::AppState;
 use auth_service::services::HashmapUserStore;
-use auth_service::Application;
 use clap::Parser;
 use dotenvy::dotenv_override;
 use fmt::format::FmtSpan;
@@ -13,7 +13,7 @@ use tokio::sync::RwLock;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 
 #[tokio::main]
 async fn main() {

@@ -12,6 +12,7 @@ use tracing::{error, instrument};
 use tracing::Level;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct SignupRequest {
     pub email: String,
     pub password: String,
@@ -20,24 +21,29 @@ pub struct SignupRequest {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub enum SignupResponse {
-    Message(String),
     Error(String),
+    Message(String),
 }
 
 #[instrument(level = Level::TRACE)]
-pub async fn signup(State(state): State<AppState>, Json(request): Json<SignupRequest>) -> impl IntoResponse {
+pub async fn signup(
+    State(state): State<AppState>,
+    Json(request): Json<SignupRequest>,
+) -> impl IntoResponse {
     match User::try_new(
         request.email.as_str(),
         request.password.as_str(),
-        request.requires_2fa)
-    {
+        request.requires_2fa,
+    ) {
         Ok(user) => {
             let store = &mut state.user_store.write().await;
             match store.add_user(user).await {
                 Ok(()) => {
-                    let response = Json(SignupResponse::Message("User created successfully!".to_string()));
+                    let response = Json(SignupResponse::Message(
+                        "User created successfully".to_string(),
+                    ));
                     (StatusCode::CREATED, response)
                 }
                 Err(UserStoreError::UserAlreadyExists(_)) => {

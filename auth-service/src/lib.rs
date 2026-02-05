@@ -1,7 +1,7 @@
 use crate::app_state::AppState;
+use axum::Router;
 use axum::routing::{get, post};
 use axum::serve::Serve;
-use axum::Router;
 use std::error::Error;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -62,13 +62,16 @@ impl Application {
 #[instrument(level = Level::TRACE)]
 async fn shutdown_signal() {
     let ctrl_c = async {
-        signal::ctrl_c().await.expect("failed to install CTRL+C handler");
+        signal::ctrl_c()
+            .await
+            .expect("failed to install CTRL+C handler");
     };
 
     #[cfg(unix)]
     let terminate = async {
-        use tokio::signal::unix::{signal, SignalKind};
-        let mut sigterm = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
+        use tokio::signal::unix::{SignalKind, signal};
+        let mut sigterm =
+            signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
         sigterm.recv().await;
     };
 

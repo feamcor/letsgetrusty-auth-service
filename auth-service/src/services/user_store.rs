@@ -7,8 +7,8 @@ pub enum UserStoreError {
     UserAlreadyExists(String),
     #[error("User was not found: {0}")]
     UserNotFound(String),
-    #[error("User invalid credentials: {0}")]
-    InvalidCredentials(String),
+    #[error("User incorrect credentials: {0}")]
+    IncorrectCredentials(String),
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
 }

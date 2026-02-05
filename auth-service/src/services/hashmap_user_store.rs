@@ -31,7 +31,7 @@ impl UserStore for HashmapUserStore {
         if user.password.expose() == password {
             Ok(())
         } else {
-            Err(UserStoreError::InvalidCredentials(email.to_string()))
+            Err(UserStoreError::IncorrectCredentials(email.to_string()))
         }
     }
 }

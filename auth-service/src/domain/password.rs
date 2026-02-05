@@ -1,6 +1,6 @@
 use secrecy::{ExposeSecret, SecretString};
 use thiserror::Error;
-use zxcvbn::{zxcvbn, Score};
+use zxcvbn::{Score, zxcvbn};
 
 // NIST Special Publication 800-63B
 // Section 3.1.1.2 Password Verifiers
@@ -48,8 +48,8 @@ impl Password {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fake::faker::internet::en::SafeEmail;
     use fake::Fake;
+    use fake::faker::internet::en::SafeEmail;
     use quickcheck_macros::quickcheck;
 
     const VALID_PASSWORD: &str = "CorrectHorseBatteryStaple123!";
@@ -73,9 +73,18 @@ mod tests {
     #[test]
     fn test_password_weak() {
         let user: String = SafeEmail().fake();
-        assert!(matches!(Password::parse("password123", &user), Err(PasswordError::Weak)));
-        assert!(matches!(Password::parse("12345678", &user), Err(PasswordError::Weak)));
-        assert!(matches!(Password::parse("qwertyuiop", &user), Err(PasswordError::Weak)));
+        assert!(matches!(
+            Password::parse("password123", &user),
+            Err(PasswordError::Weak)
+        ));
+        assert!(matches!(
+            Password::parse("12345678", &user),
+            Err(PasswordError::Weak)
+        ));
+        assert!(matches!(
+            Password::parse("qwertyuiop", &user),
+            Err(PasswordError::Weak)
+        ));
     }
 
     #[test]

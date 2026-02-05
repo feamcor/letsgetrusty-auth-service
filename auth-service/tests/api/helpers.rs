@@ -1,6 +1,6 @@
+use auth_service::Application;
 use auth_service::app_state::AppState;
 use auth_service::services::HashmapUserStore;
-use auth_service::Application;
 use axum::http::Uri;
 use reqwest::header::SET_COOKIE;
 use reqwest::{Client, Response};
@@ -8,7 +8,6 @@ use serde::Serialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use uuid::Uuid;
 
 pub struct TestApp {
     pub base_url: String,
@@ -126,8 +125,4 @@ pub fn assert_jwt(jwt: Option<String>) -> String {
     );
     assert!(jwt.ends_with("Path=/"), "JWT must have Path=/ set");
     jwt
-}
-
-pub fn random_email() -> String {
-    format!("{}@example.com", Uuid::new_v4())
 }
