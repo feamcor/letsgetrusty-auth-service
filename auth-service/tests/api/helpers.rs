@@ -2,7 +2,6 @@ use auth_service::Application;
 use auth_service::app_state::AppState;
 use auth_service::services::HashmapUserStore;
 use axum::http::Uri;
-use reqwest::header::SET_COOKIE;
 use reqwest::{Client, Response};
 use serde::Serialize;
 use std::net::SocketAddr;
@@ -100,29 +99,4 @@ impl TestApp {
             .await
             .expect("Failed to execute post_verify_token request")
     }
-}
-
-#[allow(dead_code)]
-pub fn jwt_cookie(response: &Response) -> Option<String> {
-    response
-        .headers()
-        .get_all(SET_COOKIE)
-        .iter()
-        .map(|value| value.to_str().unwrap().to_string())
-        .find(|cookie| cookie.starts_with("jwt="))
-}
-
-#[allow(dead_code)]
-pub fn assert_jwt(jwt: Option<String>) -> String {
-    let Some(jwt) = jwt else {
-        panic!("JWT cookie is missing");
-    };
-    assert!(jwt.contains("HttpOnly;"), "JWT must be HttpOnly");
-    assert!(jwt.contains("Secure;"), "JWT must be Secure");
-    assert!(
-        jwt.contains("SameSite=Lax;"),
-        "JWT must have SameSite=Lax set"
-    );
-    assert!(jwt.ends_with("Path=/"), "JWT must have Path=/ set");
-    jwt
 }

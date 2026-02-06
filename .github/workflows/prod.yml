@@ -40,6 +40,7 @@ jobs:
     - name: Build and test auth-service code
       working-directory: ./auth-service
       run: |
+        export AUTH_SERVICE_JWT_SECRET=secret
         cargo build --verbose
         cargo test --verbose
 
@@ -92,6 +93,7 @@ jobs:
         password: ${{ secrets.DROPLET_PASSWORD }}
         script: |
           cd ~
+          export AUTH_SERVICE_JWT_SECRET=${{ secrets.AUTH_SERVICE_JWT_SECRET }}
           export AUTH_SERVICE_IP=${{ vars.DROPLET_IP }}
           docker compose down
           docker compose pull

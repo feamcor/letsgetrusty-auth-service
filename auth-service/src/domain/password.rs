@@ -5,8 +5,11 @@ use zxcvbn::{Score, zxcvbn};
 // NIST Special Publication 800-63B
 // Section 3.1.1.2 Password Verifiers
 // https://pages.nist.gov/800-63-4/sp800-63b.html
-const MIN_PASSWORD_LENGTH: usize = 8;
-const MAX_PASSWORD_LENGTH: usize = 64;
+pub const MIN_PASSWORD_LENGTH: usize = 8;
+pub const MAX_PASSWORD_LENGTH: usize = 64;
+pub const PASSWORD_LENGTH_RANGE: std::ops::Range<usize> = MIN_PASSWORD_LENGTH ..MAX_PASSWORD_LENGTH + 1;
+pub const SAFE_PASSWORD_LENGTH_RANGE: std::ops::Range<usize> = MIN_PASSWORD_LENGTH * 2 ..MAX_PASSWORD_LENGTH + 1;
+const MIN_PASSWORD_ENTROPY: Score = Score::Three;
 
 #[derive(Error, Debug)]
 pub enum PasswordError {
@@ -32,7 +35,7 @@ impl Password {
 
         let entropy = zxcvbn(raw, &[user]);
         // Score 3 mean that the password can be cracked with 10^10 guesses or fewer.
-        if entropy.score() < Score::Three {
+        if entropy.score() < MIN_PASSWORD_ENTROPY {
             return Err(PasswordError::Weak);
         }
 

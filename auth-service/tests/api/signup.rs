@@ -6,6 +6,7 @@ use mime::APPLICATION_JSON;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::StatusCode;
 use serde_json::{json, Value};
+use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
 
 #[tokio::test]
 async fn should_return_201_if_valid_input() {
@@ -14,12 +15,12 @@ async fn should_return_201_if_valid_input() {
     let requests = [
         json!({
             "email": SafeEmail().fake::<String>().as_str(),
-            "password": Password(8..64).fake::<String>().as_str(),
+            "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str(),
             "requires2FA": false,
         }),
         json!({
             "email": SafeEmail().fake::<String>().as_str(),
-            "password": Password(8..64).fake::<String>().as_str(),
+            "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str(),
             "requires2FA": true,
         }),
     ];
@@ -40,7 +41,7 @@ async fn should_return_400_if_invalid_input() {
     let requests = [
         json!({
             "email": DomainSuffix().fake::<String>().as_str(),
-            "password": Password(8..64).fake::<String>().as_str(),
+            "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str(),
             "requires2FA": false,
         }),
         json!({
@@ -69,7 +70,7 @@ async fn should_return_409_if_user_already_exists() {
     let app = TestApp::new().await;
     let request = json!({
         "email": SafeEmail().fake::<String>().as_str(),
-        "password": Password(8..64).fake::<String>().as_str(),
+        "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str(),
         "requires2FA": false,
     });
     let response = app.post_signup(&request).await;
@@ -93,10 +94,10 @@ async fn should_return_422_if_unprocessable_content() {
     let requests = [
         json!({
             "email": SafeEmail().fake::<String>().as_str(),
-            "password": Password(8..64).fake::<String>().as_str()
+            "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
         }),
         json!({
-            "password": Password(8..64).fake::<String>().as_str(),
+            "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str(),
             "requires2FA": false
         }),
         json!({
@@ -107,7 +108,7 @@ async fn should_return_422_if_unprocessable_content() {
             "email": SafeEmail().fake::<String>().as_str()
         }),
         json!({
-            "password": Password(8..64).fake::<String>().as_str()
+            "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
         }),
         json!({
             "requires2FA": false

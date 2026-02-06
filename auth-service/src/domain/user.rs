@@ -17,15 +17,16 @@ pub enum UserError {
     InvalidPassword(PasswordError),
 }
 
+pub const EMAIL_OPTIONS: Options = Options {
+    minimum_sub_domains: 2,
+    allow_domain_literal: false,
+    allow_display_text: false,
+};
+
 impl User {
     pub fn try_new(email: &str, password: &str, requires_2fa: bool) -> Result<Self, UserError> {
-        let options = Options {
-            minimum_sub_domains: 2,
-            allow_domain_literal: false,
-            allow_display_text: false,
-        };
         let email_address =
-            EmailAddress::parse_with_options(email, options).map_err(UserError::InvalidEmail)?;
+            EmailAddress::parse_with_options(email, EMAIL_OPTIONS).map_err(UserError::InvalidEmail)?;
         let password = Password::parse(password, email).map_err(UserError::InvalidPassword)?;
         Ok(Self {
             email: email_address,
@@ -40,11 +41,12 @@ mod tests {
     use super::*;
     use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
     use fake::{Fake, rand};
+    use crate::domain::SAFE_PASSWORD_LENGTH_RANGE;
 
     #[test]
     fn should_return_ok_for_valid_input() {
         let email: String = SafeEmail().fake();
-        let password: String = Password(8..64).fake();
+        let password: String = SAFE_PASSWORD_LENGTH_RANGE.fake();
         let requires_2fa = rand::random();
         let result = User::try_new(&email, &password, requires_2fa);
         assert!(
@@ -58,7 +60,7 @@ mod tests {
     #[test]
     fn should_return_error_for_empty_email() {
         let email = "";
-        let password: String = Password(8..64).fake();
+        let password: String = Password(16..64).fake();
         let requires_2fa = rand::random();
         let result = User::try_new(email, &password, requires_2fa);
         assert!(matches!(result, Err(UserError::InvalidEmail(_))));
@@ -76,7 +78,7 @@ mod tests {
     #[test]
     fn should_return_invalid_email_error() {
         let email: String = DomainSuffix().fake();
-        let password: String = Password(8..64).fake();
+        let password: String = SAFE_PASSWORD_LENGTH_RANGE.fake();
         let requires_2fa = rand::random();
         let result = User::try_new(&email, &password, requires_2fa);
         assert!(matches!(result, Err(UserError::InvalidEmail(_))));
