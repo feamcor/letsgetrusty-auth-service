@@ -1,7 +1,7 @@
 use crate::app_state::AppState;
-use axum::Router;
 use axum::routing::{get, post};
 use axum::serve::Serve;
+use axum::Router;
 use std::error::Error;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -70,7 +70,7 @@ async fn shutdown_signal() {
 
     #[cfg(unix)]
     let terminate = async {
-        use tokio::signal::unix::{SignalKind, signal};
+        use tokio::signal::unix::{signal, SignalKind};
         let mut sigterm =
             signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
         sigterm.recv().await;

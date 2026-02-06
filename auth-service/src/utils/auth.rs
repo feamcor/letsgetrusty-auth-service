@@ -49,7 +49,7 @@ pub async fn validate_token(token: &str) -> Result<Claims, jsonwebtoken::errors:
         &DecodingKey::from_secret(JWT_SECRET.as_bytes()),
         &Validation::default(),
     )
-    .map(|data| data.claims)
+        .map(|data| data.claims)
 }
 
 fn create_token(claims: &Claims) -> Result<String, jsonwebtoken::errors::Error> {

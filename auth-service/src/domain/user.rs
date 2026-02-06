@@ -39,9 +39,9 @@ impl User {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
-    use fake::{Fake, rand};
     use crate::domain::SAFE_PASSWORD_LENGTH_RANGE;
+    use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
+    use fake::{rand, Fake};
 
     #[test]
     fn should_return_ok_for_valid_input() {

@@ -1,7 +1,7 @@
 use crate::helpers::TestApp;
 use mime::TEXT_HTML;
-use reqwest::StatusCode;
 use reqwest::header::CONTENT_TYPE;
+use reqwest::StatusCode;
 
 #[tokio::test]
 async fn root_returns_auth_ui() {

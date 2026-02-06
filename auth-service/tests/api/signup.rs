@@ -1,4 +1,5 @@
 use crate::helpers::TestApp;
+use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
 use auth_service::routes::SignupResponse;
 use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
 use fake::Fake;
@@ -6,7 +7,6 @@ use mime::APPLICATION_JSON;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::StatusCode;
 use serde_json::{json, Value};
-use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
 
 #[tokio::test]
 async fn should_return_201_if_valid_input() {

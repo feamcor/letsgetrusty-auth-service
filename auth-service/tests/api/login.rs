@@ -1,12 +1,12 @@
 use crate::helpers::TestApp;
+use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
+use auth_service::utils::constants::JWT_COOKIE_NAME;
 use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
 use fake::Fake;
 use mime::APPLICATION_JSON;
-use reqwest::StatusCode;
 use reqwest::header::CONTENT_TYPE;
+use reqwest::StatusCode;
 use serde_json::{json, Value};
-use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
-use auth_service::utils::constants::JWT_COOKIE_NAME;
 
 #[tokio::test]
 async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
