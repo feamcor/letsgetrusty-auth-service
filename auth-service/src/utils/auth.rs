@@ -2,7 +2,7 @@ use super::constants::{JWT_COOKIE_NAME, JWT_SECRET, JWT_TTL_SECONDS};
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::Utc;
 use email_address::EmailAddress;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
+use jsonwebtoken::{DecodingKey, EncodingKey, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 
 pub fn generate_auth_cookie(email: &EmailAddress) -> Result<Cookie<'static>, GenerateTokenError> {
@@ -10,11 +10,12 @@ pub fn generate_auth_cookie(email: &EmailAddress) -> Result<Cookie<'static>, Gen
     Ok(create_auth_cookie(token))
 }
 
-fn create_auth_cookie(token: String) -> Cookie<'static> {
+pub fn create_auth_cookie(token: String) -> Cookie<'static> {
     let cookie = Cookie::build((JWT_COOKIE_NAME, token))
-        .path("/") // apply cookie to all URLs on the server
         .http_only(true) // prevent JavaScript from accessing the cookie
         .same_site(SameSite::Lax) // send cookie with "same-site" requests, and with "cross-site" top-level navigations.
+        .secure(true)
+        .path("/") // apply cookie to all URLs on the server
         .build();
     cookie
 }
@@ -49,7 +50,7 @@ pub async fn validate_token(token: &str) -> Result<Claims, jsonwebtoken::errors:
         &DecodingKey::from_secret(JWT_SECRET.as_bytes()),
         &Validation::default(),
     )
-        .map(|data| data.claims)
+    .map(|data| data.claims)
 }
 
 fn create_token(claims: &Claims) -> Result<String, jsonwebtoken::errors::Error> {
@@ -70,8 +71,8 @@ pub struct Claims {
 mod tests {
     use super::*;
     use crate::domain::EMAIL_OPTIONS;
-    use fake::faker::internet::en::SafeEmail;
     use fake::Fake;
+    use fake::faker::internet::en::SafeEmail;
 
     #[tokio::test]
     async fn test_generate_auth_cookie() {

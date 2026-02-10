@@ -1,14 +1,16 @@
 use secrecy::{ExposeSecret, SecretString};
 use thiserror::Error;
-use zxcvbn::{zxcvbn, Score};
+use zxcvbn::{Score, zxcvbn};
 
 // NIST Special Publication 800-63B
 // Section 3.1.1.2 Password Verifiers
 // https://pages.nist.gov/800-63-4/sp800-63b.html
 pub const MIN_PASSWORD_LENGTH: usize = 8;
 pub const MAX_PASSWORD_LENGTH: usize = 64;
-pub const PASSWORD_LENGTH_RANGE: std::ops::Range<usize> = MIN_PASSWORD_LENGTH..MAX_PASSWORD_LENGTH + 1;
-pub const SAFE_PASSWORD_LENGTH_RANGE: std::ops::Range<usize> = MIN_PASSWORD_LENGTH * 2..MAX_PASSWORD_LENGTH + 1;
+pub const PASSWORD_LENGTH_RANGE: std::ops::Range<usize> =
+    MIN_PASSWORD_LENGTH..MAX_PASSWORD_LENGTH + 1;
+pub const SAFE_PASSWORD_LENGTH_RANGE: std::ops::Range<usize> =
+    MIN_PASSWORD_LENGTH * 2..MAX_PASSWORD_LENGTH + 1;
 const MIN_PASSWORD_ENTROPY: Score = Score::Three;
 
 #[derive(Error, Debug)]
@@ -51,8 +53,8 @@ impl Password {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fake::faker::internet::en::SafeEmail;
     use fake::Fake;
+    use fake::faker::internet::en::SafeEmail;
     use quickcheck_macros::quickcheck;
 
     const VALID_PASSWORD: &str = "CorrectHorseBatteryStaple123!";

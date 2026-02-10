@@ -1,9 +1,9 @@
 use crate::app_state::AppState;
-use crate::utils::auth::{generate_auth_cookie, GenerateTokenError};
+use crate::utils::auth::{GenerateTokenError, generate_auth_cookie};
+use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::Json;
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 use tracing::{error, instrument};

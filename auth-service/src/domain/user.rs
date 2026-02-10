@@ -25,8 +25,8 @@ pub const EMAIL_OPTIONS: Options = Options {
 
 impl User {
     pub fn try_new(email: &str, password: &str, requires_2fa: bool) -> Result<Self, UserError> {
-        let email_address =
-            EmailAddress::parse_with_options(email, EMAIL_OPTIONS).map_err(UserError::InvalidEmail)?;
+        let email_address = EmailAddress::parse_with_options(email, EMAIL_OPTIONS)
+            .map_err(UserError::InvalidEmail)?;
         let password = Password::parse(password, email).map_err(UserError::InvalidPassword)?;
         Ok(Self {
             email: email_address,
@@ -41,7 +41,7 @@ mod tests {
     use super::*;
     use crate::domain::SAFE_PASSWORD_LENGTH_RANGE;
     use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
-    use fake::{rand, Fake};
+    use fake::{Fake, rand};
 
     #[test]
     fn should_return_ok_for_valid_input() {

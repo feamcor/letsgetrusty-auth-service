@@ -1,4 +1,5 @@
 use crate::app_state::AppState;
+use axum::http::Method;
 use axum::routing::{get, post};
 use axum::serve::Serve;
 use axum::Router;
@@ -6,6 +7,7 @@ use std::error::Error;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio::signal;
+use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 use tracing::Level;
@@ -21,11 +23,24 @@ pub mod utils;
 pub struct Application {
     server: Serve<TcpListener, Router, Router>,
     pub address: SocketAddr,
+    pub app_service_port: u16,
 }
 
 impl Application {
     #[instrument(level = Level::TRACE, skip(state))]
-    pub async fn build(state: AppState, address: SocketAddr) -> Result<Self, Box<dyn Error>> {
+    pub async fn build(
+        state: AppState,
+        address: SocketAddr,
+        app_service_port: u16,
+    ) -> Result<Self, Box<dyn Error>> {
+        // Allow the app service to call the auth service
+        let allowed_origins = [
+            format!("http://{}:{}", address.ip(), app_service_port).parse()?
+        ];
+        let cors = CorsLayer::new()
+            .allow_methods([Method::GET, Method::POST])
+            .allow_credentials(true)
+            .allow_origin(allowed_origins);
         let assets_dir =
             ServeDir::new("assets").not_found_service(ServeFile::new("assets/index.html"));
         info!("Initialized: Assets directory");
@@ -41,6 +56,7 @@ impl Application {
             .fallback_service(assets_dir)
             .nest("/api", apis)
             .with_state(state)
+            .layer(cors)
             .layer(TraceLayer::new_for_http());
         info!("Initialized: Router");
         let listener = TcpListener::bind(address).await?;
@@ -48,7 +64,11 @@ impl Application {
         info!("Initialized: Listener");
         let server = axum::serve(listener, router);
         info!("Initialized: Server");
-        let application = Self { server, address };
+        let application = Self {
+            server,
+            address,
+            app_service_port,
+        };
         info!("Initialized: Application");
         Ok(application)
     }

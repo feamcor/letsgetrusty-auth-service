@@ -1,22 +1,20 @@
 use crate::helpers::TestApp;
 use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
 use auth_service::utils::constants::JWT_COOKIE_NAME;
-use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
 use fake::Fake;
+use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
 use mime::APPLICATION_JSON;
-use reqwest::header::CONTENT_TYPE;
 use reqwest::StatusCode;
-use serde_json::{json, Value};
+use reqwest::header::CONTENT_TYPE;
+use serde_json::{Value, json};
 
 #[tokio::test]
 async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
     let app = TestApp::new().await;
-    let requests = [
-        json!({
-            "email": SafeEmail().fake::<String>().as_str(),
-            "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
-        }),
-    ];
+    let requests = [json!({
+        "email": SafeEmail().fake::<String>().as_str(),
+        "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
+    })];
     for request in requests.iter() {
         let signup_request = json!({
             "email": request.get("email").unwrap().as_str(),
@@ -38,12 +36,10 @@ async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
 #[tokio::test]
 async fn should_return_206_if_login_requires_2fa() {
     let app = TestApp::new().await;
-    let requests = [
-        json!({
-            "email": SafeEmail().fake::<String>().as_str(),
-            "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
-        }),
-    ];
+    let requests = [json!({
+        "email": SafeEmail().fake::<String>().as_str(),
+        "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
+    })];
     for request in requests.iter() {
         let signup_request = json!({
             "email": request.get("email").unwrap().as_str(),
@@ -92,12 +88,10 @@ async fn should_return_400_if_invalid_input() {
 #[tokio::test]
 async fn should_return_401_if_incorrect_credentials() {
     let app = TestApp::new().await;
-    let requests = [
-        json!({
-            "email": SafeEmail().fake::<String>().as_str(),
-            "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
-        }),
-    ];
+    let requests = [json!({
+        "email": SafeEmail().fake::<String>().as_str(),
+        "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
+    })];
     for request in requests.iter() {
         let signup_request = json!({
             "email": request.get("email").unwrap().as_str(),
@@ -108,7 +102,10 @@ async fn should_return_401_if_incorrect_credentials() {
         assert_eq!(signup_response.status(), StatusCode::CREATED);
         let response = app.post_login(&request).await;
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE).unwrap(),
+            APPLICATION_JSON.as_ref()
+        );
     }
 }
 

@@ -1,7 +1,8 @@
+use auth_service::Application;
 use auth_service::app_state::AppState;
 use auth_service::services::HashmapUserStore;
-use auth_service::Application;
 use axum::http::Uri;
+use reqwest::cookie::Jar;
 use reqwest::{Client, Response};
 use serde::Serialize;
 use std::net::SocketAddr;
@@ -11,6 +12,7 @@ use tokio::sync::RwLock;
 pub struct TestApp {
     pub base_url: String,
     pub http_client: Client,
+    pub cookie_jar: Arc<Jar>,
 }
 
 impl TestApp {
@@ -18,7 +20,7 @@ impl TestApp {
         let user_store = HashmapUserStore::default();
         let app_state = AppState::new(Arc::new(RwLock::new(user_store)));
         let socket_addr = SocketAddr::from(([127, 0, 0, 1], 0));
-        let application = Application::build(app_state, socket_addr)
+        let application = Application::build(app_state, socket_addr, 8000)
             .await
             .expect("Failed to build app");
         let socket_addr = application.address;
@@ -32,13 +34,15 @@ impl TestApp {
         // to avoid blocking the main test thread.
         #[allow(clippy::let_underscore_future)]
         let _task = tokio::spawn(application.run());
+        let cookie_jar = Arc::new(Jar::default());
         let http_client = Client::builder()
-            .cookie_store(true)
+            .cookie_provider(cookie_jar.clone())
             .build()
             .expect("Failed to build HTTP client");
         Self {
             base_url: uri.to_string(),
             http_client,
+            cookie_jar,
         }
     }
 

@@ -1,10 +1,10 @@
 use crate::app_state::AppState;
 use crate::domain::{User, UserError};
 use crate::services::{UserStore, UserStoreError};
+use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::Json;
 use serde::{Deserialize, Serialize};
 use tracing::{error, instrument};
 

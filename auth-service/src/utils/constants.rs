@@ -6,8 +6,10 @@ lazy_static! {
 
 fn set_token() -> String {
     dotenvy::dotenv().ok();
-    let secret = std::env::var(env::JWT_SECRET)
-        .expect(&format!("{} environment variable must be set", env::JWT_SECRET));
+    let secret = std::env::var(env::JWT_SECRET).expect(&format!(
+        "{} environment variable must be set",
+        env::JWT_SECRET
+    ));
     if secret.is_empty() {
         panic!("{} environment variable must not be empty", env::JWT_SECRET);
     }

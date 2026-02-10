@@ -42,10 +42,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_user() {
-        let user_1 = User::try_new(
-            "alice@example.com",
-            "StrongPassword123!",
-            false).unwrap();
+        let user_1 = User::try_new("alice@example.com", "StrongPassword123!", false).unwrap();
         let user_2 = user_1.clone();
         let mut store = HashmapUserStore::default();
         assert!(store.add_user(user_1).await.is_ok());
@@ -54,10 +51,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_user() {
-        let user = User::try_new(
-            "alice@example.com",
-            "StrongPassword123!",
-            false).unwrap();
+        let user = User::try_new("alice@example.com", "StrongPassword123!", false).unwrap();
         let mut store = HashmapUserStore::default();
         store.add_user(user).await.unwrap();
         assert!(store.get_user("alice@example.com").await.is_ok());
@@ -66,13 +60,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_user() {
-        let user = User::try_new(
-            "alice@example.com",
-            "StrongPassword123!",
-            false).unwrap();
+        let user = User::try_new("alice@example.com", "StrongPassword123!", false).unwrap();
         let mut store = HashmapUserStore::default();
         store.add_user(user).await.unwrap();
-        assert!(store.validate_user("alice@example.com", "StrongPassword123!").await.is_ok());
-        assert!(store.validate_user("alice@example.com", "StrongPassword456!").await.is_err());
+        assert!(
+            store
+                .validate_user("alice@example.com", "StrongPassword123!")
+                .await
+                .is_ok()
+        );
+        assert!(
+            store
+                .validate_user("alice@example.com", "StrongPassword456!")
+                .await
+                .is_err()
+        );
     }
 }
