@@ -1,0 +1,6 @@
+### Logout 200 Success
+POST http://{{hostname}}:{{port}}/api/logout
+Cookie: jwt=your_token_here
+
+### Logout 401 Unauthorized - Missing or invalid token
+POST http://{{hostname}}:{{port}}/api/logout

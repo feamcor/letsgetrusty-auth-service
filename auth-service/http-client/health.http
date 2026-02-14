@@ -1,3 +1,3 @@
-### Health 200
+### Health Check 200 - Returns 200 OK if the service is up
 GET http://{{hostname}}:{{port}}/health
-Accept: text/html
+Accept: application/json

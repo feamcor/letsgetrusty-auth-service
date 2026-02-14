@@ -12,5 +12,7 @@ services:
   auth-service:
     image: feamcor/auth-service
     restart: "always" # automatically restart container when server crashes
+    environment:
+      AUTH_SERVICE_JWT_SECRET: ${AUTH_SERVICE_JWT_SECRET}
     ports:
       - "3000:3000" # expose port 3000 so that applications outside the container can connect to it 

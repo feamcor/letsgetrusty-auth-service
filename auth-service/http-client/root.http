@@ -1,7 +1,3 @@
-### Root 200 Auth Service Portal #1
-GET http://{{hostname}}:{{port}}
-Accept: text/html
-
-### Root 200 Auth Service Portal #2
+### Root (/) 200 - Returns the login/signup UI
 GET http://{{hostname}}:{{port}}/
 Accept: text/html

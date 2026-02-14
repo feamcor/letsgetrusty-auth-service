@@ -5,10 +5,11 @@ use fmt::{Display, Formatter};
 use std::fmt;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-pub const CONFIG_HOST_IPV4: &str = "AUTH_SERVICE_HOST_IPV4";
-pub const CONFIG_HOST_IPV6: &str = "AUTH_SERVICE_HOST_IPV6";
-pub const CONFIG_PORT: &str = "AUTH_SERVICE_PORT";
-pub const CONFIG_LOG: &str = "AUTH_SERVICE_LOG";
+pub const AUTH_SERVICE_HOST_IPV4: &str = "AUTH_SERVICE_HOST_IPV4";
+pub const AUTH_SERVICE_HOST_IPV6: &str = "AUTH_SERVICE_HOST_IPV6";
+pub const AUTH_SERVICE_PORT: &str = "AUTH_SERVICE_PORT";
+pub const AUTH_SERVICE_LOG: &str = "AUTH_SERVICE_LOG";
+pub const APP_SERVICE_PORT: &str = "APP_SERVICE_PORT";
 
 #[derive(ValueEnum, Clone, Debug)]
 #[value(rename_all = "kebab-case")]
@@ -43,42 +44,47 @@ impl Display for LogLevel {
 pub struct Config {
     #[arg(
         long,
-        env = CONFIG_HOST_IPV4,
-        help = "IPv4 address for the service to listen on.",
+        env = AUTH_SERVICE_HOST_IPV4,
+        help = "IPv4 address for the auth service to listen on.",
     )]
     pub ipv4: Option<Ipv4Addr>,
     #[arg(
         long,
-        env = CONFIG_HOST_IPV6,
-        help = "IPv6 address for the service to listen on.",
+        env = AUTH_SERVICE_HOST_IPV6,
+        help = "IPv6 address for the auth service to listen on.",
     )]
     pub ipv6: Option<Ipv6Addr>,
     #[arg(
         long,
-        env = CONFIG_PORT,
+        env = AUTH_SERVICE_PORT,
         default_value = "3000",
-        help = "Port for the service to listen on.",
+        help = "Port for the auth service to listen on.",
         value_parser = clap::value_parser!(u16).range(1024..),
     )]
     pub port: u16,
     #[arg(
         long,
-        env = CONFIG_LOG,
+        env = AUTH_SERVICE_LOG,
         default_value = "info",
-        help = "Log level for the service.",
+        help = "Log level for the auth service.",
     )]
     pub log: LogLevel,
+    #[arg(
+        long,
+        env = APP_SERVICE_PORT,
+        default_value = "8000",
+        help = "Port where the app service listens on.",
+        value_parser = clap::value_parser!(u16).range(1024..),
+    )]
+    pub app_service_port: u16,
 }
 
 impl Display for Config {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         write!(
             formatter,
-            "Config {{ ipv4:{:?}, ipv6:{:?}, port:{:?}, log:{:?} }}",
-            self.ipv4,
-            self.ipv6,
-            self.port,
-            self.log,
+            "Config {{ ipv4:{:?}, ipv6:{:?}, port:{:?}, log:{:?}, app_service_port:{:?} }}",
+            self.ipv4, self.ipv6, self.port, self.log, self.app_service_port
         )
     }
 }

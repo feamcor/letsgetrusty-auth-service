@@ -2,7 +2,7 @@ mod config;
 
 use crate::config::Config;
 use auth_service::app_state::AppState;
-use auth_service::services::HashmapUserStore;
+use auth_service::services::{HashmapUserStore, HashsetBannedTokenStore};
 use auth_service::Application;
 use clap::Parser;
 use dotenvy::dotenv_override;
@@ -32,10 +32,16 @@ async fn main() {
     info!("Initialized: {}", config);
 
     let user_store = HashmapUserStore::default();
-    info!("Initialized: User store");
+    info!("Initialized: User Store");
 
-    let app_state = AppState::new(Arc::new(RwLock::new(user_store)));
-    info!("Initialized: App state");
+    let banned_token_store = HashsetBannedTokenStore::default();
+    info!("Initialized: Banned Token Store");
+
+    let app_state = AppState::new(
+        Arc::new(RwLock::new(user_store)),
+        Arc::new(RwLock::new(banned_token_store)),
+    );
+    info!("Initialized: App State");
 
     let ip_address = if let Some(v6) = config.ipv6 {
         IpAddr::V6(v6)
@@ -47,10 +53,10 @@ async fn main() {
     let socket_addr = SocketAddr::new(ip_address, config.port);
     info!("Initialized: Listening address: {}", socket_addr);
 
-    Application::build(app_state, socket_addr)
+    Application::build(app_state, socket_addr, config.app_service_port)
         .await
         .expect("Failed to build app")
         .run()
         .await
-        .expect("Failed to run app")
+        .expect("Failed to run app");
 }
