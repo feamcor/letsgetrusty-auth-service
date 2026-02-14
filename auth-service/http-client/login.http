@@ -1,0 +1,42 @@
+### Login 200 Success
+POST http://{{hostname}}:{{port}}/api/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "StrongPassword123!"
+}
+
+### Login 206 Success - 2FA Required
+POST http://{{hostname}}:{{port}}/api/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "StrongPassword123!"
+}
+
+### Login 401 Unauthorized - Invalid credentials
+POST http://{{hostname}}:{{port}}/api/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "WrongPassword123!"
+}
+
+### Login 422 Unprocessable Entity - Missing email
+POST http://{{hostname}}:{{port}}/api/login
+Content-Type: application/json
+
+{
+  "password": "StrongPassword123!"
+}
+
+### Login 422 Unprocessable Entity - Missing password
+POST http://{{hostname}}:{{port}}/api/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com"
+}

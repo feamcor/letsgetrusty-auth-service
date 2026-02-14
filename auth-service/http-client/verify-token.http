@@ -1,0 +1,21 @@
+### Verify Token 200 Success
+POST http://{{hostname}}:{{port}}/api/verify-token
+Content-Type: application/json
+
+{
+  "token": "your_token_here"
+}
+
+### Verify Token 401 Unauthorized - Invalid token
+POST http://{{hostname}}:{{port}}/api/verify-token
+Content-Type: application/json
+
+{
+  "token": "invalid_token"
+}
+
+### Verify Token 422 Unprocessable Entity - Missing token field
+POST http://{{hostname}}:{{port}}/api/verify-token
+Content-Type: application/json
+
+{}

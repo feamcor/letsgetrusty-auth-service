@@ -1,0 +1,27 @@
+### Verify 2FA 200 Success
+POST http://{{hostname}}:{{port}}/api/verify-2fa
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "loginAttemptId": "some-uuid",
+  "2FACode": "123456"
+}
+
+### Verify 2FA 401 Unauthorized - Invalid 2FA Code
+POST http://{{hostname}}:{{port}}/api/verify-2fa
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "loginAttemptId": "some-uuid",
+  "2FACode": "000000"
+}
+
+### Verify 2FA 422 Unprocessable Entity - Missing fields
+POST http://{{hostname}}:{{port}}/api/verify-2fa
+Content-Type: application/json
+
+{
+  "email": "user@example.com"
+}
