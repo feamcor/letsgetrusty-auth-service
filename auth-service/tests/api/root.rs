@@ -4,7 +4,7 @@ use reqwest::StatusCode;
 use reqwest::header::CONTENT_TYPE;
 
 #[tokio::test]
-async fn root_returns_auth_ui() {
+async fn should_return_200_if_returns_auth_ui() {
     let app = TestApp::new().await;
     let response = app.get_root().await;
     assert_eq!(response.status(), StatusCode::OK);
