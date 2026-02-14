@@ -1,11 +1,11 @@
-use super::constants::{JWT_COOKIE_NAME, JWT_SECRET, JWT_TTL_SECONDS};
+use crate::domain::Email;
+use crate::utils::constants::{JWT_COOKIE_NAME, JWT_SECRET, JWT_TTL_SECONDS};
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::Utc;
-use email_address::EmailAddress;
 use jsonwebtoken::{DecodingKey, EncodingKey, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 
-pub fn generate_auth_cookie(email: &EmailAddress) -> Result<Cookie<'static>, GenerateTokenError> {
+pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>, GenerateTokenError> {
     let token = generate_auth_token(email)?;
     Ok(create_auth_cookie(token))
 }
@@ -26,7 +26,7 @@ pub enum GenerateTokenError {
     UnexpectedError,
 }
 
-fn generate_auth_token(email: &EmailAddress) -> Result<String, GenerateTokenError> {
+fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> {
     let delta = chrono::Duration::try_seconds(JWT_TTL_SECONDS)
         .ok_or(GenerateTokenError::UnexpectedError)?;
     let expiration = Utc::now()
@@ -70,14 +70,13 @@ pub struct Claims {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::EMAIL_OPTIONS;
     use fake::Fake;
     use fake::faker::internet::en::SafeEmail;
 
     #[tokio::test]
     async fn test_generate_auth_cookie() {
         let email = SafeEmail().fake::<String>();
-        let email = EmailAddress::parse_with_options(&email, EMAIL_OPTIONS).unwrap();
+        let email = Email::parse(&email).unwrap();
         let cookie = generate_auth_cookie(&email).unwrap();
         assert_eq!(cookie.name(), JWT_COOKIE_NAME);
         assert_eq!(cookie.value().split('.').count(), 3);
@@ -100,7 +99,7 @@ mod tests {
     #[tokio::test]
     async fn test_generate_auth_token() {
         let email = SafeEmail().fake::<String>();
-        let email = EmailAddress::parse_with_options(&email, EMAIL_OPTIONS).unwrap();
+        let email = Email::parse(&email).unwrap();
         let result = generate_auth_token(&email).unwrap();
         assert_eq!(result.split('.').count(), 3);
     }
@@ -108,7 +107,7 @@ mod tests {
     #[tokio::test]
     async fn test_validate_token_with_valid_token() {
         let email_string = SafeEmail().fake::<String>();
-        let email = EmailAddress::parse_with_options(&email_string, EMAIL_OPTIONS).unwrap();
+        let email = Email::parse(&email_string).unwrap();
         let token = generate_auth_token(&email).unwrap();
         let result = validate_token(&token).await.unwrap();
         assert_eq!(result.sub, email_string);

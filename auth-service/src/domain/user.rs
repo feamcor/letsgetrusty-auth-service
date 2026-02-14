@@ -1,10 +1,9 @@
-use crate::domain::{Password, PasswordError};
-use email_address::{EmailAddress, Options};
+use crate::domain::{Email, EmailError, Password, PasswordError};
 use thiserror::Error;
 
 #[derive(Debug, Clone)]
 pub struct User {
-    pub email: EmailAddress,
+    pub email: Email,
     pub password: Password,
     pub requires_2fa: bool,
 }
@@ -12,24 +11,17 @@ pub struct User {
 #[derive(Error, Debug)]
 pub enum UserError {
     #[error("Invalid email: {0}")]
-    InvalidEmail(email_address::Error),
+    InvalidEmail(EmailError),
     #[error("Invalid password: {0}")]
     InvalidPassword(PasswordError),
 }
 
-pub const EMAIL_OPTIONS: Options = Options {
-    minimum_sub_domains: 2,
-    allow_domain_literal: false,
-    allow_display_text: false,
-};
-
 impl User {
     pub fn try_new(email: &str, password: &str, requires_2fa: bool) -> Result<Self, UserError> {
-        let email_address = EmailAddress::parse_with_options(email, EMAIL_OPTIONS)
-            .map_err(UserError::InvalidEmail)?;
-        let password = Password::parse(password, email).map_err(UserError::InvalidPassword)?;
+        let email = Email::parse(email).map_err(UserError::InvalidEmail)?;
+        let password = Password::parse(password, email.as_ref()).map_err(UserError::InvalidPassword)?;
         Ok(Self {
-            email: email_address,
+            email,
             password,
             requires_2fa,
         })
