@@ -7,6 +7,7 @@ use mime::APPLICATION_JSON;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{StatusCode, Url};
 use serde_json::json;
+use auth_service::services::BannedTokenStore;
 
 #[tokio::test]
 async fn should_return_200_if_valid_jwt() {
@@ -24,8 +25,15 @@ async fn should_return_200_if_valid_jwt() {
     assert_eq!(response.status(), StatusCode::CREATED);
     let response = app.post_login(&login_request).await;
     assert_eq!(response.status(), StatusCode::OK);
+    let jwt = response
+        .cookies()
+        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
+        .expect("No auth cookie found");
     let response = app.post_logout().await;
     assert_eq!(response.status(), StatusCode::OK);
+    let store = app.banned_token_store.read().await;
+    let is_banned = store.is_token_banned(jwt.value()).await;
+    assert!(is_banned.unwrap());
 }
 
 #[tokio::test]

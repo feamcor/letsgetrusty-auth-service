@@ -36,13 +36,40 @@ async fn should_return_200_if_valid_token() {
 #[tokio::test]
 async fn should_return_401_if_invalid_token() {
     let app = TestApp::new().await;
-    let body = json!({"token":"string"});
-    let response = app.post_verify_token(&body).await;
+    let request = json!({"token":"string"});
+    let response = app.post_verify_token(&request).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
         APPLICATION_JSON.as_ref()
     );
+}
+
+#[tokio::test]
+async fn should_return_401_if_banned_token() {
+    let app = TestApp::new().await;
+    let login_request = json!({
+        "email": SafeEmail().fake::<String>().as_str(),
+        "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
+    });
+    let signup_request = json!({
+        "email": login_request.get("email").unwrap().as_str(),
+        "password": login_request.get("password").unwrap().as_str(),
+        "requires2FA": false,
+    });
+    let response = app.post_signup(&signup_request).await;
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let response = app.post_login(&login_request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let jwt = response
+        .cookies()
+        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
+        .expect("No auth cookie found");
+    let response = app.post_logout().await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let request = json!({"token": jwt.value()});
+    let response = app.post_verify_token(&request).await;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
