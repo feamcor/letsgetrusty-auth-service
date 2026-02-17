@@ -1,7 +1,6 @@
 use crate::domain::User;
-use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum UserStoreError {
     #[error("User already exists: {0}")]
     UserAlreadyExists(String),

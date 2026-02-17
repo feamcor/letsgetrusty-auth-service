@@ -1,12 +1,11 @@
 use email_address::{EmailAddress, Options};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
-use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub struct Email(EmailAddress);
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 #[error("Invalid email: {0}")]
 pub struct EmailError(String);
 
@@ -20,7 +19,7 @@ impl Email {
     pub fn parse(email: &str) -> Result<Self, EmailError> {
         EmailAddress::parse_with_options(email, EMAIL_OPTIONS)
             .map(Self)
-            .map_err(|e| EmailError(e.to_string()))
+            .map_err(|error| EmailError(error.to_string()))
     }
 }
 
@@ -31,16 +30,16 @@ impl AsRef<str> for Email {
 }
 
 impl Display for Email {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{}", self.0)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fake::Fake;
     use fake::faker::internet::en::SafeEmail;
+    use fake::Fake;
 
     #[test]
     fn should_parse_valid_email() {

@@ -1,5 +1,4 @@
 use crate::domain::{Email, EmailError, Password, PasswordError};
-use thiserror::Error;
 
 #[derive(Debug, Clone)]
 pub struct User {
@@ -8,7 +7,7 @@ pub struct User {
     pub requires_2fa: bool,
 }
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum UserError {
     #[error("Invalid email: {0}")]
     InvalidEmail(EmailError),

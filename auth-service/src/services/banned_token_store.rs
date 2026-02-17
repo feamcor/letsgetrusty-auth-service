@@ -1,6 +1,4 @@
-use thiserror::Error;
-
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum BannedTokenStoreError {
     #[error("Token already exists: {0}")]
     TokenAlreadyExists(String),
