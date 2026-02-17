@@ -70,9 +70,9 @@ impl IntoResponse for ApiError {
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse::from(err.to_string())),
             ),
-            ApiError::UnexpectedError(_) => (
+            ApiError::UnexpectedError(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::from("Unexpected error".to_string())),
+                Json(ErrorResponse::from(err.to_string())),
             ),
         };
         (status, body).into_response()
