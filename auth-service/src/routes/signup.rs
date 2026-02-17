@@ -1,12 +1,13 @@
 use crate::app_state::AppState;
-use crate::domain::{User, UserError};
-use crate::services::{UserStore, UserStoreError};
-use axum::Json;
+use crate::domain::User;
+use crate::services::UserStore;
+use crate::utils::api_error::ApiError;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
+use axum::Json;
 use serde::{Deserialize, Serialize};
-use tracing::{error, instrument};
+use tracing::instrument;
 
 #[allow(unused_imports)]
 use tracing::Level;
@@ -23,7 +24,6 @@ pub struct SignupRequest {
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub enum SignupResponse {
-    Error(String),
     Message(String),
 }
 
@@ -31,42 +31,16 @@ pub enum SignupResponse {
 pub async fn signup(
     State(state): State<AppState>,
     Json(request): Json<SignupRequest>,
-) -> impl IntoResponse {
-    match User::try_new(
+) -> Result<impl IntoResponse, ApiError> {
+    let user = User::try_new(
         request.email.as_str(),
         request.password.as_str(),
         request.requires_2fa,
-    ) {
-        Ok(user) => {
-            let store = &mut state.user_store.write().await;
-            match store.add_user(user).await {
-                Ok(()) => {
-                    let response = Json(SignupResponse::Message(
-                        "User created successfully".to_string(),
-                    ));
-                    (StatusCode::CREATED, response)
-                }
-                Err(UserStoreError::UserAlreadyExists(_)) => {
-                    let response = Json(SignupResponse::Error("User already exists".to_string()));
-                    (StatusCode::CONFLICT, response)
-                }
-                Err(UserStoreError::UnexpectedError(error)) => {
-                    error!("Unexpected error when adding user to store: {}", error);
-                    let response = Json(SignupResponse::Error("Unexpected error".to_string()));
-                    (StatusCode::INTERNAL_SERVER_ERROR, response)
-                }
-                _ => {
-                    unreachable!() // There are other errors at UserStoreError that should not happen here
-                }
-            }
-        }
-        Err(UserError::InvalidEmail(error)) => {
-            let response = Json(SignupResponse::Error(format!("Invalid email: {error}")));
-            (StatusCode::BAD_REQUEST, response)
-        }
-        Err(UserError::InvalidPassword(error)) => {
-            let response = Json(SignupResponse::Error(format!("Invalid password: {error}")));
-            (StatusCode::BAD_REQUEST, response)
-        }
-    }
+    )?;
+    let store = &mut state.user_store.write().await;
+    store.add_user(user).await?;
+    let response = Json(SignupResponse::Message(
+        "User created successfully".to_string(),
+    ));
+    Ok((StatusCode::CREATED, response))
 }
