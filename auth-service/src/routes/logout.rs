@@ -7,17 +7,10 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum_extra::extract::CookieJar;
-use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 #[allow(unused_imports)]
 use tracing::Level;
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub enum LogoutResponse {
-    Error(String),
-}
 
 #[instrument(level = Level::TRACE)]
 pub async fn logout(

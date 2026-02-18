@@ -30,49 +30,49 @@ pub enum ApiError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, body) = match self {
-            ApiError::UserError(err) => (
+            ApiError::UserError(error) => (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::from(err.to_string())),
+                Json(ErrorResponse::from(error.to_string())),
             ),
-            ApiError::UserStoreError(UserStoreError::UserNotFound(err)) => (
+            ApiError::UserStoreError(error @ UserStoreError::UserNotFound(_)) => (
                 StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse::from(err.to_string())),
+                Json(ErrorResponse::from(error.to_string())),
             ),
-            ApiError::UserStoreError(UserStoreError::IncorrectCredentials(err)) => (
+            ApiError::UserStoreError(error @ UserStoreError::IncorrectCredentials(_)) => (
                 StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse::from(err.to_string())),
+                Json(ErrorResponse::from(error.to_string())),
             ),
-            ApiError::UserStoreError(UserStoreError::UserAlreadyExists(err)) => (
+            ApiError::UserStoreError(error @ UserStoreError::UserAlreadyExists(_)) => (
                 StatusCode::CONFLICT,
-                Json(ErrorResponse::from(err.to_string())),
+                Json(ErrorResponse::from(error.to_string())),
             ),
-            ApiError::UserStoreError(err) => (
+            ApiError::UserStoreError(error) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::from(err.to_string())),
+                Json(ErrorResponse::from(error.to_string())),
             ),
-            ApiError::GenerateTokenError(err) => (
+            ApiError::GenerateTokenError(error) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::from(err.to_string())),
+                Json(ErrorResponse::from(error.to_string())),
             ),
-            ApiError::TwoFactorAuthError(err) => (
+            ApiError::TwoFactorAuthError(error) => (
                 StatusCode::PARTIAL_CONTENT,
-                Json(ErrorResponse::TwoFactorAuth(err)),
+                Json(ErrorResponse::TwoFactorAuth(error)),
             ),
-            err @ ApiError::TokenInvalid => (
+            error @ ApiError::TokenInvalid => (
                 StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse::from(err.to_string())),
+                Json(ErrorResponse::from(error.to_string())),
             ),
-            err @ ApiError::TokenMissing => (
+            error @ ApiError::TokenMissing => (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::from(err.to_string())),
+                Json(ErrorResponse::from(error.to_string())),
             ),
-            err @ ApiError::TokenBanned => (
+            error @ ApiError::TokenBanned => (
                 StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse::from(err.to_string())),
+                Json(ErrorResponse::from(error.to_string())),
             ),
-            ApiError::UnexpectedError(err) => (
+            ApiError::UnexpectedError(error) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::from(err.to_string())),
+                Json(ErrorResponse::from(error.to_string())),
             ),
         };
         (status, body).into_response()
@@ -80,9 +80,9 @@ impl IntoResponse for ApiError {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)]
 pub enum ErrorResponse {
     Error(String),
+    #[serde(untagged)]
     TwoFactorAuth(TwoFactorAuthError),
 }
 

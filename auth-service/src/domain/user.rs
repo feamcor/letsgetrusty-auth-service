@@ -9,8 +9,8 @@ pub struct User {
 
 #[derive(thiserror::Error, Debug)]
 pub enum UserError {
-    #[error("Invalid email: {0}")]
-    InvalidEmail(EmailError),
+    #[error(transparent)]
+    InvalidEmail(#[from] EmailError),
     #[error("Invalid password: {0}")]
     InvalidPassword(PasswordError),
 }

@@ -18,12 +18,6 @@ pub struct VerifyTokenRequest {
     pub token: String,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub enum VerifyTokenResponse {
-    Error(String),
-}
-
 #[instrument(level = Level::TRACE)]
 pub async fn verify_token(
     State(state): State<AppState>,
