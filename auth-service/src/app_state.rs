@@ -2,7 +2,7 @@ use crate::services::{HashmapUserStore, HashsetBannedTokenStore};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-pub type UserStoreType = Arc<RwLock<HashmapUserStore>>;
+pub type UserStoreType = Arc<HashmapUserStore>;
 pub type BannedTokenStoreType = Arc<RwLock<HashsetBannedTokenStore>>;
 
 #[derive(Debug, Clone)]

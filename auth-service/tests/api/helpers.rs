@@ -18,7 +18,7 @@ pub struct TestApp {
 
 impl TestApp {
     pub async fn new() -> Self {
-        let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
+        let user_store = Arc::new(HashmapUserStore::default());
         let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
         let app_state = AppState::new(user_store, banned_token_store.clone());
         let socket_addr = SocketAddr::from(([127, 0, 0, 1], 0));

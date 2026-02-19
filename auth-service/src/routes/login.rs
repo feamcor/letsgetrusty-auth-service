@@ -27,7 +27,7 @@ pub async fn login(
     jar: CookieJar,
     Json(request): Json<LoginRequest>,
 ) -> Result<(CookieJar, impl IntoResponse), ApiError> {
-    let store = &state.user_store.read().await;
+    let store = &state.user_store;
     User::try_new(&request.email, &request.password, false)?;
     store
         .validate_user(&request.email, &request.password)

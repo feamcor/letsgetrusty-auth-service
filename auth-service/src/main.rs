@@ -38,7 +38,7 @@ async fn main() {
     info!("Initialized: Banned Token Store");
 
     let app_state = AppState::new(
-        Arc::new(RwLock::new(user_store)),
+        Arc::new(user_store),
         Arc::new(RwLock::new(banned_token_store)),
     );
     info!("Initialized: App State");

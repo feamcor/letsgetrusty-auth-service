@@ -37,8 +37,7 @@ pub async fn signup(
         request.password.as_str(),
         request.requires_2fa,
     )?;
-    let store = &mut state.user_store.write().await;
-    store.add_user(user).await?;
+    let _ = &state.user_store.add_user(user).await?;
     let response = Json(SignupResponse::Message(
         "User created successfully".to_string(),
     ));
