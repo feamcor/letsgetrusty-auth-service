@@ -9,7 +9,6 @@ use dotenvy::dotenv_override;
 use fmt::format::FmtSpan;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -37,10 +36,7 @@ async fn main() {
     let banned_token_store = HashsetBannedTokenStore::default();
     info!("Initialized: Banned Token Store");
 
-    let app_state = AppState::new(
-        Arc::new(user_store),
-        Arc::new(RwLock::new(banned_token_store)),
-    );
+    let app_state = AppState::new(Arc::new(user_store), Arc::new(banned_token_store));
     info!("Initialized: App State");
 
     let ip_address = if let Some(v6) = config.ipv6 {

@@ -7,19 +7,18 @@ use reqwest::{Client, Response};
 use serde::Serialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 pub struct TestApp {
     pub base_url: String,
     pub http_client: Client,
     pub cookie_jar: Arc<Jar>,
-    pub banned_token_store: Arc<RwLock<HashsetBannedTokenStore>>,
+    pub banned_token_store: Arc<HashsetBannedTokenStore>,
 }
 
 impl TestApp {
     pub async fn new() -> Self {
         let user_store = Arc::new(HashmapUserStore::default());
-        let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
+        let banned_token_store = Arc::new(HashsetBannedTokenStore::default());
         let app_state = AppState::new(user_store, banned_token_store.clone());
         let socket_addr = SocketAddr::from(([127, 0, 0, 1], 0));
         let application = Application::build(app_state, socket_addr, 8000)

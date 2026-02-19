@@ -25,10 +25,8 @@ pub async fn logout(
         .await
         .map_err(|_| ApiError::TokenInvalid)?;
     let jar = jar.remove(create_auth_cookie("".to_string()));
-    state
-        .banned_token_store
-        .write()
-        .await
+    let store = &state.banned_token_store;
+    store
         .add_token(&token)
         .await
         .map_err(|e| ApiError::UnexpectedError(e.into()))?;

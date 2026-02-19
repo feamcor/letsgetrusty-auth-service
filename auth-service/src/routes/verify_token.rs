@@ -26,7 +26,7 @@ pub async fn verify_token(
     validate_token(&request.token)
         .await
         .map_err(|_| ApiError::TokenInvalid)?;
-    let store = state.banned_token_store.read().await;
+    let store = &state.banned_token_store;
     let is_banned = store
         .is_token_banned(&request.token)
         .await
