@@ -2,7 +2,7 @@ mod config;
 
 use crate::config::Config;
 use auth_service::app_state::AppState;
-use auth_service::services::{HashmapTwoFactorAuthCodeStore, HashmapUserStore, HashsetBannedTokenStore};
+use auth_service::services::{HashmapTwoFactorAuthCodeStore, HashmapUserStore, HashsetBannedTokenStore, MockEmailClient};
 use auth_service::Application;
 use clap::Parser;
 use dotenvy::dotenv_override;
@@ -36,13 +36,17 @@ async fn main() {
     let banned_token_store = HashsetBannedTokenStore::default();
     info!("Initialized: Banned Token Store");
 
-    let two_fa_code_store = HashmapTwoFactorAuthCodeStore::default();
+    let two_factor_auth_code_store = HashmapTwoFactorAuthCodeStore::default();
     info!("Initialized: Two Factor Auth Code Store");
+
+    let email_client = MockEmailClient;
+    info!("Initialized: Email Client");
 
     let app_state = AppState::new(
         Arc::new(user_store),
         Arc::new(banned_token_store),
-        Arc::new(two_fa_code_store),
+        Arc::new(two_factor_auth_code_store),
+        Arc::new(email_client),
     );
     info!("Initialized: App State");
 

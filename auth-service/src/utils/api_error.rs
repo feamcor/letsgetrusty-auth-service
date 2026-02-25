@@ -1,5 +1,5 @@
 use crate::domain::UserError;
-use crate::services::{TwoFactorAuthCodeStoreError, UserStoreError};
+use crate::services::{EmailClientError, TwoFactorAuthCodeStoreError, UserStoreError};
 use crate::utils::auth::GenerateTokenError;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -16,6 +16,8 @@ pub enum ApiError {
     GenerateTokenError(#[from] GenerateTokenError),
     #[error(transparent)]
     TwoFactorAuthCodeStoreError(#[from] TwoFactorAuthCodeStoreError),
+    #[error(transparent)]
+    EmailClientError(#[from] EmailClientError),
     #[error("Invalid token")]
     TokenInvalid,
     #[error("Token missing")]
@@ -56,7 +58,11 @@ impl IntoResponse for ApiError {
             ApiError::TwoFactorAuthCodeStoreError(error) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::from(error.to_string())),
-                ),
+            ),
+            ApiError::EmailClientError(error) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::from(error.to_string())),
+            ),
             error @ ApiError::TokenInvalid => (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse::from(error.to_string())),

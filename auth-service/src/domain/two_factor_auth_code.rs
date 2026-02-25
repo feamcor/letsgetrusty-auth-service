@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use rand::RngExt;
 
 const TWO_FA_CODE_LENGTH: usize = 6;
@@ -12,6 +13,12 @@ impl TwoFactorAuthCode {
         } else {
             Err(format!("{} is not a valid 6-digit 2FA code", code))
         }
+    }
+}
+
+impl Display for TwoFactorAuthCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "2FA Code: {}", self.0)
     }
 }
 

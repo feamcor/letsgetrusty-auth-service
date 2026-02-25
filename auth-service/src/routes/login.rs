@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use crate::domain::{LoginAttemptId, TwoFactorAuthCode, User};
-use crate::services::{TwoFactorAuthCodeStore, UserStore};
+use crate::services::{EmailClient, TwoFactorAuthCodeStore, UserStore};
 use crate::utils::api_error::ApiError;
 use crate::utils::auth::generate_auth_cookie;
 use axum::extract::State;
@@ -53,16 +53,21 @@ pub async fn login(
     let user = user_store.get_user(&request.email).await?;
 
     if user.requires_2fa {
-        let two_factor_auth_response = TwoFactorAuthResponse::default();
-        let login_attempt_id = two_factor_auth_response.login_attempt_id.clone();
-        let two_fa_code = TwoFactorAuthCode::default();
-        let two_fa_code_store = &state.two_fa_code_store;
-        two_fa_code_store
-            .add_code(user.email, login_attempt_id, two_fa_code)
+        let response = TwoFactorAuthResponse::default();
+        let login_attempt_id = response.login_attempt_id.clone();
+        let auth_code = TwoFactorAuthCode::default();
+        state.email_client.send_email(
+            &user.email,
+            "Auth Service Login Attempt",
+            &format!("2FA Code: {}", auth_code)
+        ).await?;
+        let auth_code_store = &state.two_factor_auth_code_store;
+        auth_code_store
+            .add_code(user.email, login_attempt_id, auth_code)
             .await?;
         return Ok((
             jar,
-            (StatusCode::PARTIAL_CONTENT, Json(two_factor_auth_response)).into_response(),
+            (StatusCode::PARTIAL_CONTENT, Json(response)).into_response(),
         ));
     }
 
