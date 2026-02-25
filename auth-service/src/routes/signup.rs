@@ -23,8 +23,8 @@ pub struct SignupRequest {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub enum SignupResponse {
-    Message(String),
+pub struct SignupResponse {
+    pub message: String,
 }
 
 #[instrument(level = Level::TRACE)]
@@ -38,8 +38,8 @@ pub async fn signup(
         request.requires_2fa,
     )?;
     let _ = &state.user_store.add_user(user).await?;
-    let response = Json(SignupResponse::Message(
-        "User created successfully".to_string(),
-    ));
+    let response = Json(SignupResponse {
+        message: "User created successfully".to_string(),
+    });
     Ok((StatusCode::CREATED, response))
 }
