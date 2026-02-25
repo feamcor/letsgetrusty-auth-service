@@ -2,7 +2,7 @@ mod config;
 
 use crate::config::Config;
 use auth_service::app_state::AppState;
-use auth_service::services::{HashmapUserStore, HashsetBannedTokenStore};
+use auth_service::services::{HashmapTwoFactorAuthCodeStore, HashmapUserStore, HashsetBannedTokenStore};
 use auth_service::Application;
 use clap::Parser;
 use dotenvy::dotenv_override;
@@ -36,7 +36,14 @@ async fn main() {
     let banned_token_store = HashsetBannedTokenStore::default();
     info!("Initialized: Banned Token Store");
 
-    let app_state = AppState::new(Arc::new(user_store), Arc::new(banned_token_store));
+    let two_fa_code_store = HashmapTwoFactorAuthCodeStore::default();
+    info!("Initialized: Two Factor Auth Code Store");
+
+    let app_state = AppState::new(
+        Arc::new(user_store),
+        Arc::new(banned_token_store),
+        Arc::new(two_fa_code_store),
+    );
     info!("Initialized: App State");
 
     let ip_address = if let Some(v6) = config.ipv6 {

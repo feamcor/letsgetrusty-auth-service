@@ -8,7 +8,6 @@ pub enum BannedTokenStoreError {
     UnexpectedError(#[from] anyhow::Error),
 }
 
-
 #[async_trait::async_trait]
 pub trait BannedTokenStore {
     async fn add_token(&self, token: &str) -> Result<(), BannedTokenStoreError>;

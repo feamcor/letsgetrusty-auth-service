@@ -1,5 +1,5 @@
 use auth_service::app_state::AppState;
-use auth_service::services::{HashmapUserStore, HashsetBannedTokenStore};
+use auth_service::services::{HashmapTwoFactorAuthCodeStore, HashmapUserStore, HashsetBannedTokenStore};
 use auth_service::Application;
 use axum::http::Uri;
 use reqwest::cookie::Jar;
@@ -13,13 +13,19 @@ pub struct TestApp {
     pub http_client: Client,
     pub cookie_jar: Arc<Jar>,
     pub banned_token_store: Arc<HashsetBannedTokenStore>,
+    pub two_fa_code_store: Arc<HashmapTwoFactorAuthCodeStore>,
 }
 
 impl TestApp {
     pub async fn new() -> Self {
         let user_store = Arc::new(HashmapUserStore::default());
         let banned_token_store = Arc::new(HashsetBannedTokenStore::default());
-        let app_state = AppState::new(user_store, banned_token_store.clone());
+        let two_fa_code_store = Arc::new(HashmapTwoFactorAuthCodeStore::default());
+        let app_state = AppState::new(
+            user_store,
+            banned_token_store.clone(),
+            two_fa_code_store.clone(),
+        );
         let socket_addr = SocketAddr::from(([127, 0, 0, 1], 0));
         let application = Application::build(app_state, socket_addr, 8000)
             .await
@@ -45,6 +51,7 @@ impl TestApp {
             http_client,
             cookie_jar,
             banned_token_store,
+            two_fa_code_store,
         }
     }
 

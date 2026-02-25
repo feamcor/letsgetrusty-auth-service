@@ -1,12 +1,14 @@
 use crate::helpers::TestApp;
-use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
+use auth_service::domain::{Email, SAFE_PASSWORD_LENGTH_RANGE};
 use auth_service::utils::constants::JWT_COOKIE_NAME;
-use fake::Fake;
 use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
+use fake::Fake;
 use mime::APPLICATION_JSON;
-use reqwest::StatusCode;
 use reqwest::header::CONTENT_TYPE;
-use serde_json::{Value, json};
+use reqwest::StatusCode;
+use serde_json::{json, Value};
+use auth_service::routes::TwoFactorAuthResponse;
+use auth_service::services::TwoFactorAuthCodeStore;
 
 #[tokio::test]
 async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
@@ -34,7 +36,7 @@ async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
 }
 
 #[tokio::test]
-async fn should_return_206_if_login_requires_2fa() {
+async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     let app = TestApp::new().await;
     let requests = [json!({
         "email": SafeEmail().fake::<String>().as_str(),
@@ -54,6 +56,20 @@ async fn should_return_206_if_login_requires_2fa() {
             response.headers().get(CONTENT_TYPE).unwrap(),
             APPLICATION_JSON.as_ref()
         );
+        let body = response
+            .json::<TwoFactorAuthResponse>()
+            .await
+            .expect("Failed to deserialize TwoFactorAuthResponse");
+
+        let email = request.get("email").unwrap();
+        let email = email.as_str().unwrap();
+        let email = Email::parse(email).unwrap();
+        let (stored_login_attempt_id, _) = app
+            .two_fa_code_store
+            .get_code(&email)
+            .await
+            .expect("Login attempt ID not found in store");
+        assert_eq!(stored_login_attempt_id, body.login_attempt_id);
     }
 }
 
