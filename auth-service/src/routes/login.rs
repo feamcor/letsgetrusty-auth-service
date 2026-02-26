@@ -1,15 +1,15 @@
 use crate::app_state::AppState;
-use crate::domain::User;
-use crate::services::UserStore;
-use crate::utils::auth::{generate_auth_cookie, GenerateTokenError};
+use crate::domain::{LoginAttemptId, TwoFactorAuthCode, User};
+use crate::services::{EmailClient, TwoFactorAuthCodeStore, UserStore};
+use crate::utils::api_error::ApiError;
+use crate::utils::auth::generate_auth_cookie;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
-use tracing::{error, instrument};
-use uuid::Uuid;
+use tracing::instrument;
 
 #[allow(unused_imports)]
 use tracing::Level;
@@ -25,15 +25,18 @@ pub struct LoginRequest {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct TwoFactorAuthResponse {
     pub message: String,
-    login_attempt_id: String,
+    pub login_attempt_id: LoginAttemptId,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub enum LoginResponse {
-    Error(String),
-    #[serde(untagged)]
-    TwoFactorAuth(TwoFactorAuthResponse),
+impl Default for TwoFactorAuthResponse {
+    fn default() -> Self {
+        let message = "2FA required".to_string();
+        let login_attempt_id = LoginAttemptId::default();
+        Self {
+            message,
+            login_attempt_id,
+        }
+    }
 }
 
 #[instrument(level = Level::TRACE)]
@@ -41,85 +44,34 @@ pub async fn login(
     State(state): State<AppState>,
     jar: CookieJar,
     Json(request): Json<LoginRequest>,
-) -> (CookieJar, impl IntoResponse) {
-    let store = &state.user_store.read().await;
-    if let Err(error) = User::try_new(&request.email, &request.password, false) {
-        return (
-            jar,
-            (
-                StatusCode::BAD_REQUEST,
-                Json(LoginResponse::Error(error.to_string())),
-            )
-                .into_response(),
-        )
-    }
-
-    if let Err(error) = store.validate_user(&request.email, &request.password).await {
-        return (
-            jar,
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(LoginResponse::Error(error.to_string())),
-            )
-                .into_response(),
-        )
-    }
-
-    let user = match store.get_user(&request.email).await {
-        Ok(user) => user,
-        Err(error) => {
-            error!("Unexpected error when getting user from store: {}", error);
-            return (
-                jar,
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(LoginResponse::Error(error.to_string())),
-                )
-                    .into_response(),
-            );
-        }
-    };
+) -> Result<(CookieJar, impl IntoResponse), ApiError> {
+    let user_store = &state.user_store;
+    User::try_new(&request.email, &request.password, false)?;
+    user_store
+        .validate_user(&request.email, &request.password)
+        .await?;
+    let user = user_store.get_user(&request.email).await?;
 
     if user.requires_2fa {
-        // TODO: check against the 2FA provided previously
-        let two_factor_auth_response = TwoFactorAuthResponse {
-            message: "2FA required".to_string(),
-            login_attempt_id: Uuid::now_v7().to_string(),
-        };
-        return (
+        let response = TwoFactorAuthResponse::default();
+        let login_attempt_id = response.login_attempt_id.clone();
+        let auth_code = TwoFactorAuthCode::default();
+        state.email_client.send_email(
+            &user.email,
+            "Auth Service Login Attempt",
+            &format!("2FA Code: {}", auth_code)
+        ).await?;
+        let auth_code_store = &state.two_factor_auth_code_store;
+        auth_code_store
+            .add_code(user.email, login_attempt_id, auth_code)
+            .await?;
+        return Ok((
             jar,
-            (
-                StatusCode::PARTIAL_CONTENT,
-                Json(LoginResponse::TwoFactorAuth(two_factor_auth_response)),
-            )
-                .into_response(),
-        );
+            (StatusCode::PARTIAL_CONTENT, Json(response)).into_response(),
+        ));
     }
 
-    let cookie = match generate_auth_cookie(&user.email) {
-        Ok(cookie) => cookie,
-        Err(GenerateTokenError::TokenError(error)) => {
-            return (
-                jar,
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(LoginResponse::Error(error.to_string())),
-                )
-                    .into_response(),
-            );
-        }
-        Err(GenerateTokenError::UnexpectedError) => {
-            return (
-                jar,
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(LoginResponse::Error("Unexpected error".to_string())),
-                )
-                    .into_response(),
-            );
-        }
-    };
-
+    let cookie = generate_auth_cookie(&user.email)?;
     let jar = jar.add(cookie);
-    (jar, StatusCode::OK.into_response())
+    Ok((jar, StatusCode::OK.into_response()))
 }

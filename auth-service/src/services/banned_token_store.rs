@@ -1,6 +1,4 @@
-use thiserror::Error;
-
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum BannedTokenStoreError {
     #[error("Token already exists: {0}")]
     TokenAlreadyExists(String),
@@ -10,10 +8,9 @@ pub enum BannedTokenStoreError {
     UnexpectedError(#[from] anyhow::Error),
 }
 
-
 #[async_trait::async_trait]
 pub trait BannedTokenStore {
-    async fn add_token(&mut self, token: &str) -> Result<(), BannedTokenStoreError>;
+    async fn add_token(&self, token: &str) -> Result<(), BannedTokenStoreError>;
     async fn is_token_banned(&self, token: &str) -> Result<bool, BannedTokenStoreError>;
-    async fn remove_token(&mut self, token: &str) -> Result<(), BannedTokenStoreError>;
+    async fn remove_token(&self, token: &str) -> Result<(), BannedTokenStoreError>;
 }

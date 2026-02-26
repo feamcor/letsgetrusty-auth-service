@@ -1,5 +1,7 @@
 use auth_service::app_state::AppState;
-use auth_service::services::{HashmapUserStore, HashsetBannedTokenStore};
+use auth_service::services::{
+    HashmapTwoFactorAuthCodeStore, HashmapUserStore, HashsetBannedTokenStore, MockEmailClient,
+};
 use auth_service::Application;
 use axum::http::Uri;
 use reqwest::cookie::Jar;
@@ -7,20 +9,27 @@ use reqwest::{Client, Response};
 use serde::Serialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 pub struct TestApp {
     pub base_url: String,
     pub http_client: Client,
     pub cookie_jar: Arc<Jar>,
-    pub banned_token_store: Arc<RwLock<HashsetBannedTokenStore>>,
+    pub banned_token_store: Arc<HashsetBannedTokenStore>,
+    pub two_factor_auth_code_store: Arc<HashmapTwoFactorAuthCodeStore>,
 }
 
 impl TestApp {
     pub async fn new() -> Self {
-        let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
-        let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
-        let app_state = AppState::new(user_store, banned_token_store.clone());
+        let user_store = Arc::new(HashmapUserStore::default());
+        let banned_token_store = Arc::new(HashsetBannedTokenStore::default());
+        let two_factor_auth_code_store = Arc::new(HashmapTwoFactorAuthCodeStore::default());
+        let email_client = Arc::new(MockEmailClient);
+        let app_state = AppState::new(
+            user_store,
+            banned_token_store.clone(),
+            two_factor_auth_code_store.clone(),
+            email_client,
+        );
         let socket_addr = SocketAddr::from(([127, 0, 0, 1], 0));
         let application = Application::build(app_state, socket_addr, 8000)
             .await
@@ -46,6 +55,7 @@ impl TestApp {
             http_client,
             cookie_jar,
             banned_token_store,
+            two_factor_auth_code_store,
         }
     }
 

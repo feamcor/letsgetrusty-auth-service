@@ -1,13 +1,13 @@
 use crate::helpers::TestApp;
 use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
+use auth_service::services::BannedTokenStore;
 use auth_service::utils::constants::JWT_COOKIE_NAME;
-use fake::Fake;
 use fake::faker::internet::en::SafeEmail;
+use fake::Fake;
 use mime::APPLICATION_JSON;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{StatusCode, Url};
 use serde_json::json;
-use auth_service::services::BannedTokenStore;
 
 #[tokio::test]
 async fn should_return_200_if_valid_jwt() {
@@ -31,8 +31,7 @@ async fn should_return_200_if_valid_jwt() {
         .expect("No auth cookie found");
     let response = app.post_logout().await;
     assert_eq!(response.status(), StatusCode::OK);
-    let store = app.banned_token_store.read().await;
-    let is_banned = store.is_token_banned(jwt.value()).await;
+    let is_banned = app.banned_token_store.is_token_banned(jwt.value()).await;
     assert!(is_banned.unwrap());
 }
 

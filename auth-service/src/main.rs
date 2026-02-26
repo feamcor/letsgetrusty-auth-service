@@ -2,14 +2,13 @@ mod config;
 
 use crate::config::Config;
 use auth_service::app_state::AppState;
-use auth_service::services::{HashmapUserStore, HashsetBannedTokenStore};
+use auth_service::services::{HashmapTwoFactorAuthCodeStore, HashmapUserStore, HashsetBannedTokenStore, MockEmailClient};
 use auth_service::Application;
 use clap::Parser;
 use dotenvy::dotenv_override;
 use fmt::format::FmtSpan;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -37,9 +36,17 @@ async fn main() {
     let banned_token_store = HashsetBannedTokenStore::default();
     info!("Initialized: Banned Token Store");
 
+    let two_factor_auth_code_store = HashmapTwoFactorAuthCodeStore::default();
+    info!("Initialized: Two Factor Auth Code Store");
+
+    let email_client = MockEmailClient;
+    info!("Initialized: Email Client");
+
     let app_state = AppState::new(
-        Arc::new(RwLock::new(user_store)),
-        Arc::new(RwLock::new(banned_token_store)),
+        Arc::new(user_store),
+        Arc::new(banned_token_store),
+        Arc::new(two_factor_auth_code_store),
+        Arc::new(email_client),
     );
     info!("Initialized: App State");
 

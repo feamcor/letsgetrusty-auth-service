@@ -42,7 +42,7 @@ loginButton.addEventListener("click", (e) => {
     const email = loginForm.email.value;
     const password = loginForm.password.value;
 
-    fetch('/login', {
+    fetch('/api/login', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -92,7 +92,7 @@ signupButton.addEventListener("click", (e) => {
     const password = signupForm.password.value;
     const requires2FA = signupForm.twoFA.checked;
 
-    fetch('/signup', {
+    fetch('/api/signup', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -133,7 +133,7 @@ TwoFAButton.addEventListener("click", (e) => {
     const loginAttemptId = TwoFAForm.login_attempt_id.value;
     const TwoFACode = TwoFAForm.email_code.value;
 
-    fetch('/verify-2fa', {
+    fetch('/api/verify-2fa', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

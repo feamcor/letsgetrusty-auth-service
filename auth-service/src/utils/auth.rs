@@ -20,9 +20,11 @@ pub fn create_auth_cookie(token: String) -> Cookie<'static> {
     cookie
 }
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum GenerateTokenError {
-    TokenError(jsonwebtoken::errors::Error),
+    #[error("Token error: {0}")]
+    TokenError(#[from] jsonwebtoken::errors::Error),
+    #[error("Unexpected error")]
     UnexpectedError,
 }
 

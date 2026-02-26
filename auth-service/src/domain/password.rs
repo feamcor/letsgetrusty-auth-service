@@ -1,5 +1,4 @@
 use secrecy::{ExposeSecret, SecretString};
-use thiserror::Error;
 use zxcvbn::{Score, zxcvbn};
 
 // NIST Special Publication 800-63B
@@ -13,7 +12,7 @@ pub const SAFE_PASSWORD_LENGTH_RANGE: std::ops::Range<usize> =
     MIN_PASSWORD_LENGTH * 2..MAX_PASSWORD_LENGTH + 1;
 const MIN_PASSWORD_ENTROPY: Score = Score::Three;
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum PasswordError {
     #[error("Password is too short (min length is {MIN_PASSWORD_LENGTH})")]
     TooShort,

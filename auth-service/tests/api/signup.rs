@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 
 #[tokio::test]
 async fn should_return_201_if_valid_input() {
-    let expected = SignupResponse::Message("User created successfully".to_string());
+    let expected = SignupResponse { message: "User created successfully".to_string() };
     let app = TestApp::new().await;
     let requests = [
         json!({

@@ -45,6 +45,7 @@ impl Application {
             ServeDir::new("assets").not_found_service(ServeFile::new("assets/index.html"));
         info!("Initialized: Assets directory");
         let apis = Router::new()
+            .route("/health", get(routes::health))
             .route("/signup", post(routes::signup))
             .route("/login", post(routes::login))
             .route("/logout", post(routes::logout))
@@ -52,7 +53,6 @@ impl Application {
             .route("/verify-token", post(routes::verify_token));
         info!("Initialized: API routes");
         let router = Router::new()
-            .route("/health", get(routes::health))
             .fallback_service(assets_dir)
             .nest("/api", apis)
             .with_state(state)
