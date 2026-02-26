@@ -1,4 +1,5 @@
 use crate::app_state::AppState;
+use crate::services::BannedTokenStore;
 use crate::utils::api_error::ApiError;
 use crate::utils::auth::validate_token;
 use axum::extract::State;
@@ -8,7 +9,6 @@ use axum::Json;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use crate::services::BannedTokenStore;
 #[allow(unused_imports)]
 use tracing::Level;
 

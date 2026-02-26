@@ -1,4 +1,4 @@
-use crate::domain::UserError;
+use crate::domain::{EmailError, LoginAttemptIdError, TwoFactorAuthCodeError, UserError};
 use crate::services::{EmailClientError, TwoFactorAuthCodeStoreError, UserStoreError};
 use crate::utils::auth::GenerateTokenError;
 use axum::http::StatusCode;
@@ -15,7 +15,13 @@ pub enum ApiError {
     #[error(transparent)]
     GenerateTokenError(#[from] GenerateTokenError),
     #[error(transparent)]
+    TwoFactorAuthCodeError(#[from] TwoFactorAuthCodeError),
+    #[error(transparent)]
     TwoFactorAuthCodeStoreError(#[from] TwoFactorAuthCodeStoreError),
+    #[error(transparent)]
+    EmailError(#[from] EmailError),
+    #[error(transparent)]
+    LoginAttemptIdError(#[from] LoginAttemptIdError),
     #[error(transparent)]
     EmailClientError(#[from] EmailClientError),
     #[error("Invalid token")]
@@ -24,6 +30,8 @@ pub enum ApiError {
     TokenMissing,
     #[error("Token banned")]
     TokenBanned,
+    #[error("Incorrect Credentials")]
+    IncorrectCredentials,
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
 }
@@ -55,8 +63,20 @@ impl IntoResponse for ApiError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::from(error.to_string())),
             ),
+            ApiError::TwoFactorAuthCodeError(error) => (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::from(error.to_string())),
+            ),
             ApiError::TwoFactorAuthCodeStoreError(error) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::from(error.to_string())),
+            ),
+            ApiError::EmailError(error) => (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::from(error.to_string())),
+            ),
+            ApiError::LoginAttemptIdError(error) => (
+                StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::from(error.to_string())),
             ),
             ApiError::EmailClientError(error) => (
@@ -72,6 +92,10 @@ impl IntoResponse for ApiError {
                 Json(ErrorResponse::from(error.to_string())),
             ),
             error @ ApiError::TokenBanned => (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse::from(error.to_string())),
+            ),
+            error @ ApiError::IncorrectCredentials => (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse::from(error.to_string())),
             ),

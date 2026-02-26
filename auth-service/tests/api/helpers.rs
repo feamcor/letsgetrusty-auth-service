@@ -15,7 +15,7 @@ pub struct TestApp {
     pub http_client: Client,
     pub cookie_jar: Arc<Jar>,
     pub banned_token_store: Arc<HashsetBannedTokenStore>,
-    pub two_fa_code_store: Arc<HashmapTwoFactorAuthCodeStore>,
+    pub two_factor_auth_code_store: Arc<HashmapTwoFactorAuthCodeStore>,
 }
 
 impl TestApp {
@@ -55,7 +55,7 @@ impl TestApp {
             http_client,
             cookie_jar,
             banned_token_store,
-            two_fa_code_store: two_factor_auth_code_store,
+            two_factor_auth_code_store,
         }
     }
 

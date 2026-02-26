@@ -1,8 +1,7 @@
 use email_address::{EmailAddress, Options};
-use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Email(EmailAddress);
 
 #[derive(thiserror::Error, Debug)]

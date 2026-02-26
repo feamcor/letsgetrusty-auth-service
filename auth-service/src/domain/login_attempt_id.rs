@@ -4,11 +4,15 @@ use uuid::Uuid;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LoginAttemptId(String);
 
+#[derive(thiserror::Error, Debug)]
+#[error("Invalid Login Attempt Id: {0}")]
+pub struct LoginAttemptIdError(String);
+
 impl LoginAttemptId {
-    pub fn parse(id: String) -> Result<Self, String> {
+    pub fn parse(id: String) -> Result<Self, LoginAttemptIdError> {
         Uuid::parse_str(&id)
             .map(|_| Self(id))
-            .map_err(|e| e.to_string())
+            .map_err(|e| LoginAttemptIdError(e.to_string()))
     }
 }
 

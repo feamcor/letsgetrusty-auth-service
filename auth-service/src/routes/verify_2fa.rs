@@ -1,12 +1,52 @@
+use crate::app_state::AppState;
+use crate::domain::{Email, LoginAttemptId, TwoFactorAuthCode};
+use crate::services::{TwoFactorAuthCodeStore, TwoFactorAuthCodeStoreError};
 use crate::utils::api_error::ApiError;
+use crate::utils::auth::generate_auth_cookie;
+use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
+use axum::Json;
+use axum_extra::extract::CookieJar;
+use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 #[allow(unused_imports)]
 use tracing::Level;
 
-#[instrument(level = Level::TRACE)]
-pub async fn verify_2fa() -> Result<impl IntoResponse, ApiError> {
-    Ok(StatusCode::OK.into_response()) // TODO: dummy response for task 4
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct Verify2FARequest {
+    pub email: String,
+    pub login_attempt_id: String,
+    #[serde(rename = "2FACode")]
+    pub two_factor_auth_code: String,
+}
+
+#[instrument(level = Level::TRACE, skip(state))]
+pub async fn verify_2fa(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Json(request): Json<Verify2FARequest>,
+) -> Result<(CookieJar, impl IntoResponse), ApiError> {
+    let email = Email::parse(&request.email)?;
+    let attempt_id = LoginAttemptId::parse(request.login_attempt_id)?;
+    let auth_code = TwoFactorAuthCode::parse(request.two_factor_auth_code)?;
+    let auth_code_store = &state.two_factor_auth_code_store;
+    let (stored_attempt_id, stored_auth_code) = match auth_code_store.get_code(&email).await {
+        Ok(code) => code,
+        Err(TwoFactorAuthCodeStoreError::CodeNotFound) => {
+            return Err(ApiError::IncorrectCredentials);
+        }
+        Err(error) => {
+            return Err(ApiError::UnexpectedError(error.into()));
+        }
+    };
+    if attempt_id != stored_attempt_id || auth_code != stored_auth_code {
+        return Err(ApiError::IncorrectCredentials);
+    }
+    auth_code_store.remove_code(&email).await?;
+    let cookie = generate_auth_cookie(&email)?;
+    let jar = jar.add(cookie);
+    Ok((jar, StatusCode::OK.into_response()))
 }

@@ -1,17 +1,25 @@
-use std::fmt::Display;
 use rand::RngExt;
+use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
-const TWO_FA_CODE_LENGTH: usize = 6;
+const TWO_FACTOR_AUTH_CODE_LENGTH: usize = 6;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFactorAuthCode(String);
 
+#[derive(thiserror::Error, Debug)]
+#[error("Invalid 2FA Code: {0}")]
+pub struct TwoFactorAuthCodeError(String);
+
 impl TwoFactorAuthCode {
-    pub fn parse(code: String) -> Result<Self, String> {
-        if code.len() == TWO_FA_CODE_LENGTH && code.chars().all(|c| c.is_ascii_digit()) {
+    pub fn parse(code: String) -> Result<Self, TwoFactorAuthCodeError> {
+        if code.len() == TWO_FACTOR_AUTH_CODE_LENGTH && code.chars().all(|c| c.is_ascii_digit()) {
             Ok(Self(code))
         } else {
-            Err(format!("{} is not a valid 6-digit 2FA code", code))
+            Err(TwoFactorAuthCodeError(format!(
+                "{} is not a valid {}-digit 2FA code",
+                code, TWO_FACTOR_AUTH_CODE_LENGTH
+            )))
         }
     }
 }
