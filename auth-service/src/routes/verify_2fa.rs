@@ -46,7 +46,12 @@ pub async fn verify_2fa(
         return Err(ApiError::IncorrectCredentials);
     }
     auth_code_store.remove_code(&email).await?;
-    let cookie = generate_auth_cookie(&email)?;
+    let config = &state.config;
+    let cookie = generate_auth_cookie(
+        &email,
+        config.jwt_secret.as_ref().unwrap(),
+        config.jwt_ttl_seconds,
+    )?;
     let jar = jar.add(cookie);
     Ok((jar, StatusCode::OK.into_response()))
 }

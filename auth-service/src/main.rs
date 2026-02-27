@@ -1,34 +1,34 @@
-mod config;
-
-use crate::config::Config;
 use auth_service::app_state::AppState;
-use auth_service::services::{HashmapTwoFactorAuthCodeStore, HashmapUserStore, HashsetBannedTokenStore, MockEmailClient};
+use auth_service::config::Config;
+use auth_service::services::{
+    HashmapTwoFactorAuthCodeStore, HashmapUserStore, HashsetBannedTokenStore, MockEmailClient,
+};
 use auth_service::Application;
-use clap::Parser;
-use dotenvy::dotenv_override;
 use fmt::format::FmtSpan;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use tracing::info;
+use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{fmt, reload};
 
 #[tokio::main]
 async fn main() {
-    let dotenv = dotenv_override().ok();
-    let config = Config::parse();
+    let (filter, reload_handle) = reload::Layer::new(LevelFilter::INFO);
 
     tracing_subscriber::registry()
-        .with(EnvFilter::from(config.log.to_string()))
+        .with(filter)
         .with(fmt::layer().with_span_events(FmtSpan::NEW | FmtSpan::CLOSE))
         .init();
     info!("Initialized: Tracing");
 
-    if let Some(dotenv) = dotenv {
-        info!("Initialized: {}", dotenv.display());
-    }
-    info!("Initialized: {}", config);
+    let config = Config::init_from_env_and_cli();
+
+    let log_level = config.log.clone();
+    reload_handle
+        .modify(|level_filter| *level_filter = LevelFilter::from_level(log_level.into()))
+        .expect("Failed to modify log level filter");
 
     let user_store = HashmapUserStore::default();
     info!("Initialized: User Store");
@@ -42,14 +42,6 @@ async fn main() {
     let email_client = MockEmailClient;
     info!("Initialized: Email Client");
 
-    let app_state = AppState::new(
-        Arc::new(user_store),
-        Arc::new(banned_token_store),
-        Arc::new(two_factor_auth_code_store),
-        Arc::new(email_client),
-    );
-    info!("Initialized: App State");
-
     let ip_address = if let Some(v6) = config.ipv6 {
         IpAddr::V6(v6)
     } else if let Some(v4) = config.ipv4 {
@@ -60,7 +52,16 @@ async fn main() {
     let socket_addr = SocketAddr::new(ip_address, config.port);
     info!("Initialized: Listening address: {}", socket_addr);
 
-    Application::build(app_state, socket_addr, config.app_service_port)
+    let app_state = AppState::new(
+        Arc::new(user_store),
+        Arc::new(banned_token_store),
+        Arc::new(two_factor_auth_code_store),
+        Arc::new(email_client),
+        Arc::new(config),
+    );
+    info!("Initialized: App State");
+
+    Application::build(app_state, socket_addr)
         .await
         .expect("Failed to build app")
         .run()

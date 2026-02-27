@@ -23,7 +23,8 @@ pub async fn verify_token(
     State(state): State<AppState>,
     Json(request): Json<VerifyTokenRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    validate_token(&request.token)
+    let config = &state.config;
+    validate_token(&request.token, &config.jwt_secret.as_ref().unwrap())
         .await
         .map_err(|_| ApiError::TokenInvalid)?;
     let store = &state.banned_token_store;

@@ -21,7 +21,8 @@ pub async fn logout(
         return Err(ApiError::TokenMissing);
     };
     let token = cookie.value().to_owned();
-    validate_token(&token)
+    let config = &state.config;
+    validate_token(&token, &config.jwt_secret.as_ref().unwrap())
         .await
         .map_err(|_| ApiError::TokenInvalid)?;
     let jar = jar.remove(create_auth_cookie("".to_string()));

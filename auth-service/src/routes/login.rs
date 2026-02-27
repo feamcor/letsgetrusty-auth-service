@@ -56,11 +56,14 @@ pub async fn login(
         let response = TwoFactorAuthResponse::default();
         let login_attempt_id = response.login_attempt_id.clone();
         let auth_code = TwoFactorAuthCode::default();
-        state.email_client.send_email(
-            &user.email,
-            "Auth Service Login Attempt",
-            &format!("2FA Code: {}", auth_code)
-        ).await?;
+        state
+            .email_client
+            .send_email(
+                &user.email,
+                "Auth Service Login Attempt",
+                &format!("2FA Code: {}", auth_code),
+            )
+            .await?;
         let auth_code_store = &state.two_factor_auth_code_store;
         auth_code_store
             .add_code(user.email, login_attempt_id, auth_code)
@@ -71,7 +74,12 @@ pub async fn login(
         ));
     }
 
-    let cookie = generate_auth_cookie(&user.email)?;
+    let config = &state.config;
+    let cookie = generate_auth_cookie(
+        &user.email,
+        config.jwt_secret.as_ref().unwrap(),
+        config.jwt_ttl_seconds,
+    )?;
     let jar = jar.add(cookie);
     Ok((jar, StatusCode::OK.into_response()))
 }

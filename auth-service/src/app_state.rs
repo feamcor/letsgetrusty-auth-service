@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::services::{
     HashmapTwoFactorAuthCodeStore, HashmapUserStore, HashsetBannedTokenStore, MockEmailClient,
 };
@@ -7,6 +8,7 @@ pub type UserStoreType = Arc<HashmapUserStore>;
 pub type BannedTokenStoreType = Arc<HashsetBannedTokenStore>;
 pub type TwoFactorAuthCodeStoreType = Arc<HashmapTwoFactorAuthCodeStore>;
 pub type EmailClientType = Arc<MockEmailClient>;
+pub type ConfigType = Arc<Config>;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -14,6 +16,7 @@ pub struct AppState {
     pub banned_token_store: BannedTokenStoreType,
     pub two_factor_auth_code_store: TwoFactorAuthCodeStoreType,
     pub email_client: EmailClientType,
+    pub config: ConfigType,
 }
 
 impl AppState {
@@ -22,12 +25,14 @@ impl AppState {
         banned_token_store: BannedTokenStoreType,
         two_factor_auth_code_store: TwoFactorAuthCodeStoreType,
         email_client: EmailClientType,
+        config: ConfigType,
     ) -> Self {
         Self {
             user_store,
             banned_token_store,
             two_factor_auth_code_store,
             email_client,
+            config,
         }
     }
 }

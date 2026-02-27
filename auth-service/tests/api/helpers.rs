@@ -7,8 +7,9 @@ use axum::http::Uri;
 use reqwest::cookie::Jar;
 use reqwest::{Client, Response};
 use serde::Serialize;
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
+use auth_service::config::Config;
 
 pub struct TestApp {
     pub base_url: String,
@@ -20,6 +21,7 @@ pub struct TestApp {
 
 impl TestApp {
     pub async fn new() -> Self {
+        let config = Arc::new(Config::init_from_env());
         let user_store = Arc::new(HashmapUserStore::default());
         let banned_token_store = Arc::new(HashsetBannedTokenStore::default());
         let two_factor_auth_code_store = Arc::new(HashmapTwoFactorAuthCodeStore::default());
@@ -29,9 +31,10 @@ impl TestApp {
             banned_token_store.clone(),
             two_factor_auth_code_store.clone(),
             email_client,
+            config,
         );
-        let socket_addr = SocketAddr::from(([127, 0, 0, 1], 0));
-        let application = Application::build(app_state, socket_addr, 8000)
+        let socket_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 0));
+        let application = Application::build(app_state, socket_addr)
             .await
             .expect("Failed to build app");
         let socket_addr = application.address;

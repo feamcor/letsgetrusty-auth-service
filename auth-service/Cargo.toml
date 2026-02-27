@@ -25,8 +25,9 @@ clap = { version = "4.5.58", features = ["derive", "env"] }
 zxcvbn = "3.1.0"
 jsonwebtoken = { version = "10.3.0", features = ["aws_lc_rs"] }
 chrono = "0.4.43"
-lazy_static = "1.5.0"
 rand = "0.10.0"
+sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "migrate"] }
+tokio-util = "0.7.18"
 
 [dev-dependencies]
 reqwest = { version = "0.13.2", default-features = false, features = ["json", "cookies"] }
