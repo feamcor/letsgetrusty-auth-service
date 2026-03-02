@@ -1,10 +1,11 @@
 use crate::domain::Email;
-use crate::utils::constants::JWT_COOKIE_NAME;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::Utc;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
+
+pub const JWT_COOKIE_NAME: &str = "jwt";
 
 pub fn generate_auth_cookie(
     email: &Email,

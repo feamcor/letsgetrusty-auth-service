@@ -1,6 +1,6 @@
 use crate::helpers::TestApp;
 use auth_service::domain::{Email, SAFE_PASSWORD_LENGTH_RANGE};
-use auth_service::utils::constants::JWT_COOKIE_NAME;
+use auth_service::utils::auth::JWT_COOKIE_NAME;
 use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
 use fake::Fake;
 use mime::APPLICATION_JSON;

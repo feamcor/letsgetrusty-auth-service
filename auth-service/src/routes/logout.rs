@@ -2,7 +2,7 @@ use crate::app_state::AppState;
 use crate::services::BannedTokenStore;
 use crate::utils::api_error::ApiError;
 use crate::utils::auth::{create_auth_cookie, validate_token};
-use crate::utils::constants::JWT_COOKIE_NAME;
+use crate::utils::auth::JWT_COOKIE_NAME;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
