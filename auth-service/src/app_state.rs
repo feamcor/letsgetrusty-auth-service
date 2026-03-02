@@ -1,7 +1,8 @@
 use crate::config::Config;
-use crate::services::{
-    HashmapTwoFactorAuthCodeStore, HashmapUserStore, HashsetBannedTokenStore, MockEmailClient,
-};
+use crate::services::stores::HashmapTwoFactorAuthCodeStore;
+use crate::services::stores::HashmapUserStore;
+use crate::services::stores::HashsetBannedTokenStore;
+use crate::services::clients::MockEmailClient;
 use std::sync::Arc;
 
 pub type UserStoreType = Arc<HashmapUserStore>;
