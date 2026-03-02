@@ -3,6 +3,8 @@ use axum::http::Method;
 use axum::routing::{get, post};
 use axum::serve::Serve;
 use axum::Router;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::PgPool;
 use std::error::Error;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -100,4 +102,17 @@ async fn shutdown_signal(shutdown_token: CancellationToken) {
     }
 
     info!("Shutdown signal received!");
+}
+
+#[instrument(level = Level::TRACE)]
+pub async fn get_database_pool(
+    url: &str,
+    min_pool_size: u32,
+    max_pool_size: u32,
+) -> Result<PgPool, sqlx::Error> {
+    PgPoolOptions::new()
+        .min_connections(min_pool_size)
+        .max_connections(max_pool_size)
+        .connect(url)
+        .await
 }

@@ -3,7 +3,7 @@ use clap::Parser;
 use clap::ValueEnum;
 use dotenvy::dotenv_override;
 use fmt::{Display, Formatter};
-use secrecy::SecretString;
+use secrecy::{ExposeSecret, SecretString};
 use std::env;
 use std::fmt;
 use std::net::{Ipv4Addr, Ipv6Addr};
@@ -21,7 +21,7 @@ pub mod consts {
     pub const AUTH_SERVICE_LOG: &str = "AUTH_SERVICE_LOG";
     pub const AUTH_SERVICE_DB_HOSTNAME: &str = "AUTH_SERVICE_DB_HOSTNAME";
     pub const AUTH_SERVICE_DB_PORT: &str = "AUTH_SERVICE_DB_PORT";
-    pub const AUTH_SERVICE_DB_NAME: &str = "AUTH_SERVICE_DB_NAME";
+    pub const AUTH_SERVICE_DB_DATABASE: &str = "AUTH_SERVICE_DB_NAME";
     pub const AUTH_SERVICE_DB_USERNAME: &str = "AUTH_SERVICE_DB_USERNAME";
     pub const AUTH_SERVICE_DB_PASSWORD: &str = "AUTH_SERVICE_DB_PASSWORD";
     pub const AUTH_SERVICE_DB_POOL_MIN_SIZE: &str = "AUTH_SERVICE_DB_POOL_MIN_SIZE";
@@ -36,8 +36,8 @@ pub mod consts {
     pub const AUTH_SERVICE_LOG_DEFAULT: LogLevel = LogLevel::Info;
     pub const AUTH_SERVICE_DB_HOSTNAME_DEFAULT: &str = "localhost";
     pub const AUTH_SERVICE_DB_PORT_DEFAULT: u16 = 5432;
-    pub const AUTH_SERVICE_DB_NAME_DEFAULT: &str = "postgres";
-    pub const AUTH_SERVICE_DB_USERNAME_DEFAULT: &str = "postgres";
+    pub const AUTH_SERVICE_DB_DATABASE_DEFAULT: &str = "letsgetrusty";
+    pub const AUTH_SERVICE_DB_USERNAME_DEFAULT: &str = "administrator";
     pub const AUTH_SERVICE_DB_PASSWORD_DEFAULT: Option<SecretString> = None;
     pub const AUTH_SERVICE_DB_POOL_MIN_SIZE_DEFAULT: u32 = 1;
     pub const AUTH_SERVICE_DB_POOL_MAX_SIZE_DEFAULT: u32 = 10;
@@ -133,11 +133,11 @@ pub struct Config {
 
     #[arg(
         long,
-        env = consts::AUTH_SERVICE_DB_NAME,
-        default_value_t = String::from(consts::AUTH_SERVICE_DB_NAME_DEFAULT),
+        env = consts::AUTH_SERVICE_DB_DATABASE,
+        default_value_t = String::from(consts::AUTH_SERVICE_DB_DATABASE_DEFAULT),
         help = "Name of the database server.",
     )]
-    pub db_name: String,
+    pub db_database: String,
 
     #[arg(
         long,
@@ -200,7 +200,7 @@ impl Display for Config {
             .field("log", &self.log)
             .field("db_hostname", &self.db_hostname)
             .field("db_port", &self.db_port)
-            .field("db_name", &self.db_name)
+            .field("db_database", &self.db_database)
             .field("db_username", &self.db_username)
             .field("db_password", &self.db_password)
             .field("db_pool_min_size", &self.db_pool_min_size)
@@ -221,7 +221,7 @@ impl Default for Config {
             log: consts::AUTH_SERVICE_LOG_DEFAULT,
             db_hostname: String::from(consts::AUTH_SERVICE_DB_HOSTNAME_DEFAULT),
             db_port: consts::AUTH_SERVICE_DB_PORT_DEFAULT,
-            db_name: String::from(consts::AUTH_SERVICE_DB_NAME_DEFAULT),
+            db_database: String::from(consts::AUTH_SERVICE_DB_DATABASE_DEFAULT),
             db_username: String::from(consts::AUTH_SERVICE_DB_USERNAME_DEFAULT),
             db_password: consts::AUTH_SERVICE_DB_PASSWORD_DEFAULT,
             db_pool_min_size: consts::AUTH_SERVICE_DB_POOL_MIN_SIZE_DEFAULT,
@@ -321,13 +321,13 @@ impl Config {
                 consts::AUTH_SERVICE_DB_PORT_DEFAULT
             });
 
-        let db_name = env::var(consts::AUTH_SERVICE_DB_NAME).unwrap_or_else(|_| {
+        let db_name = env::var(consts::AUTH_SERVICE_DB_DATABASE).unwrap_or_else(|_| {
             warn!(
                 "using default value: {}={}",
-                consts::AUTH_SERVICE_DB_NAME,
-                consts::AUTH_SERVICE_DB_NAME_DEFAULT,
+                consts::AUTH_SERVICE_DB_DATABASE,
+                consts::AUTH_SERVICE_DB_DATABASE_DEFAULT,
             );
-            consts::AUTH_SERVICE_DB_NAME_DEFAULT.to_string()
+            consts::AUTH_SERVICE_DB_DATABASE_DEFAULT.to_string()
         });
 
         let db_username = env::var(consts::AUTH_SERVICE_DB_USERNAME).unwrap_or_else(|_| {
@@ -401,7 +401,7 @@ impl Config {
             log,
             db_hostname,
             db_port,
-            db_name,
+            db_database: db_name,
             db_username,
             db_password,
             db_pool_min_size,
@@ -431,6 +431,17 @@ impl Config {
         config.db_password = db_password;
         config.jwt_secret = jwt_secret;
         config
+    }
+
+    pub fn database_url(&self) -> String {
+        format!(
+            "postgresql://{}:{}@{}:{}/{}",
+            self.db_username,
+            self.db_password.as_ref().unwrap().expose_secret(),
+            self.db_hostname,
+            self.db_port,
+            self.db_database
+        )
     }
 }
 

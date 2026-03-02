@@ -3,8 +3,9 @@ use auth_service::config::Config;
 use auth_service::services::{
     HashmapTwoFactorAuthCodeStore, HashmapUserStore, HashsetBannedTokenStore, MockEmailClient,
 };
-use auth_service::Application;
+use auth_service::{get_database_pool, Application};
 use fmt::format::FmtSpan;
+use sqlx::PgPool;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use tracing::info;
@@ -29,6 +30,11 @@ async fn main() {
     reload_handle
         .modify(|level_filter| *level_filter = LevelFilter::from_level(log_level.into()))
         .expect("Failed to modify log level filter");
+
+    let db_pool = configure_database(&config)
+        .await
+        .expect("Failed to configure database");
+    info!("Initialized: Database");
 
     let user_store = HashmapUserStore::default();
     info!("Initialized: User Store");
@@ -67,4 +73,15 @@ async fn main() {
         .run()
         .await
         .expect("Failed to run app");
+}
+
+async fn configure_database(config: &Config) -> Result<PgPool, sqlx::Error> {
+    let pool = get_database_pool(
+        &config.database_url(),
+        config.db_pool_min_size,
+        config.db_pool_max_size,
+    )
+    .await?;
+    sqlx::migrate!().run(&pool).await?;
+    Ok(pool)
 }
