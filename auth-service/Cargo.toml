@@ -19,14 +19,14 @@ email_address = "0.2.9"
 thiserror = "2.0.18"
 secrecy = "0.10.3"
 async-trait = "0.1.89"
-anyhow = "1.0.101"
+anyhow = "1.0.102"
 dotenvy = "0.15.7"
-clap = { version = "4.5.58", features = ["derive", "env"] }
+clap = { version = "4.5.60", features = ["derive", "env"] }
 zxcvbn = "3.1.0"
 jsonwebtoken = { version = "10.3.0", features = ["aws_lc_rs"] }
-chrono = "0.4.43"
+chrono = "0.4.44"
 rand = "0.10.0"
-sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "migrate"] }
+sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "tls-rustls", "macros", "migrate", "postgres"] }
 tokio-util = "0.7.18"
 
 [dev-dependencies]
@@ -34,4 +34,4 @@ reqwest = { version = "0.13.2", default-features = false, features = ["json", "c
 mime = "0.3.17"
 fake = { version = "4.4.0", features = ["derive"] }
 quickcheck = "1.1.0"
-quickcheck_macros = "1.1.0"
+quickcheck_macros = "1.2.0"
