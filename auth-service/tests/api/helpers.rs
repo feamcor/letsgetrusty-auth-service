@@ -1,37 +1,54 @@
 use auth_service::app_state::AppState;
+use auth_service::config::{Config, ConfigType, StoreEngine};
 use auth_service::services::{
-    HashmapTwoFactorAuthCodeStore, HashmapUserStore, HashsetBannedTokenStore, MockEmailClient,
+    BannedTokenStoreType, EmailClientType, HashmapTwoFactorAuthCodeStore, HashmapUserStore,
+    HashsetBannedTokenStore, MockEmailClient, PostgresUserStore, TwoFactorAuthCodeStoreType,
+    UserStoreType,
 };
 use auth_service::Application;
 use axum::http::Uri;
 use reqwest::cookie::Jar;
 use reqwest::{Client, Response};
 use serde::Serialize;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::{Executor, PgPool};
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
-use auth_service::config::Config;
+use uuid::Uuid;
 
 pub struct TestApp {
     pub base_url: String,
     pub http_client: Client,
     pub cookie_jar: Arc<Jar>,
-    pub banned_token_store: Arc<HashsetBannedTokenStore>,
-    pub two_factor_auth_code_store: Arc<HashmapTwoFactorAuthCodeStore>,
+    pub banned_token_store: BannedTokenStoreType,
+    pub two_factor_auth_code_store: TwoFactorAuthCodeStoreType,
 }
 
 impl TestApp {
     pub async fn new() -> Self {
-        let config = Arc::new(Config::init_from_env());
-        let user_store = Arc::new(HashmapUserStore::default());
-        let banned_token_store = Arc::new(HashsetBannedTokenStore::default());
-        let two_factor_auth_code_store = Arc::new(HashmapTwoFactorAuthCodeStore::default());
-        let email_client = Arc::new(MockEmailClient);
+        let config_type = ConfigType::new(Config::init_from_env());
+        let config = config_type.inner();
+
+        let user_store_type = match config.store_engine {
+            StoreEngine::Memory => {
+                UserStoreType::new(HashmapUserStore::default())
+            }
+            StoreEngine::Database => {
+                let pool = configure_database_for_testing(&config).await;
+                UserStoreType::new(PostgresUserStore::new(pool))
+            }
+        };
+
+        let banned_token_store_type = BannedTokenStoreType::new(HashsetBannedTokenStore::default());
+        let two_factor_auth_code_store_type =
+            TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default());
+        let email_client_type = EmailClientType::new(MockEmailClient);
         let app_state = AppState::new(
-            user_store,
-            banned_token_store.clone(),
-            two_factor_auth_code_store.clone(),
-            email_client,
-            config,
+            user_store_type,
+            banned_token_store_type.clone(),
+            two_factor_auth_code_store_type.clone(),
+            email_client_type,
+            config_type,
         );
         let socket_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 0));
         let application = Application::build(app_state, socket_addr)
@@ -57,8 +74,8 @@ impl TestApp {
             base_url: uri.to_string(),
             http_client,
             cookie_jar,
-            banned_token_store,
-            two_factor_auth_code_store,
+            banned_token_store: banned_token_store_type,
+            two_factor_auth_code_store: two_factor_auth_code_store_type,
         }
     }
 
@@ -119,4 +136,26 @@ impl TestApp {
             .await
             .expect("Failed to execute post_verify_token request")
     }
+}
+
+async fn configure_database_for_testing(config: &Config) -> PgPool {
+    let db_name = Uuid::now_v7().to_string();
+    let db_url = config.database_url(None);
+    let pool = PgPoolOptions::new()
+        .connect(&db_url)
+        .await
+        .expect("Failed to create connection pool");
+    pool.execute(format!(r#"CREATE DATABASE "{}";"#, db_name).as_str())
+        .await
+        .expect("Failed to create database");
+    let db_url = config.database_url(Some(&db_name));
+    let pool = PgPoolOptions::new()
+        .connect(&db_url)
+        .await
+        .expect("Failed to create connection pool");
+    sqlx::migrate!()
+        .run(&pool)
+        .await
+        .expect("Failed to migrate the database");
+    pool
 }

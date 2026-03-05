@@ -1,10 +1,10 @@
 use crate::app_state::AppState;
+use axum::Router;
 use axum::http::Method;
 use axum::routing::{get, post};
 use axum::serve::Serve;
-use axum::Router;
-use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 use std::error::Error;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -13,7 +13,7 @@ use tokio_util::sync::CancellationToken;
 use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
-use tracing::{warn, Level};
+use tracing::{Level, warn};
 use tracing::{info, instrument};
 
 pub mod app_state;
@@ -32,7 +32,7 @@ pub struct Application {
 impl Application {
     #[instrument(level = Level::TRACE, skip(state))]
     pub async fn build(state: AppState, address: SocketAddr) -> Result<Self, Box<dyn Error>> {
-        let config = &state.config;
+        let config = &state.config.inner();
         // Allow the app service to call the auth service
         let allowed_origins =
             [format!("http://{}:{}", address.ip(), config.app_service_port).parse()?];
@@ -72,7 +72,9 @@ impl Application {
     pub async fn run(self) -> Result<(), std::io::Error> {
         info!("Server listening on {}", self.address);
         let shutdown_token = CancellationToken::new();
-        self.server.with_graceful_shutdown(shutdown_signal(shutdown_token)).await
+        self.server
+            .with_graceful_shutdown(shutdown_signal(shutdown_token))
+            .await
     }
 }
 
@@ -86,7 +88,7 @@ async fn shutdown_signal(shutdown_token: CancellationToken) {
 
     #[cfg(unix)]
     let terminate = async {
-        use tokio::signal::unix::{signal, SignalKind};
+        use tokio::signal::unix::{SignalKind, signal};
         let mut sigterm =
             signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
         sigterm.recv().await;
@@ -105,14 +107,21 @@ async fn shutdown_signal(shutdown_token: CancellationToken) {
 }
 
 #[instrument(level = Level::TRACE)]
-pub async fn get_database_pool(
-    url: &str,
-    min_pool_size: u32,
-    max_pool_size: u32,
+pub async fn database_pool(
+    db_url: &str,
+    db_pool_min_size: u32,
+    db_pool_max_size: u32,
 ) -> Result<PgPool, sqlx::Error> {
     PgPoolOptions::new()
-        .min_connections(min_pool_size)
-        .max_connections(max_pool_size)
-        .connect(url)
+        .min_connections(db_pool_min_size)
+        .max_connections(db_pool_max_size)
+        .connect(db_url)
         .await
+}
+
+#[instrument(level = Level::TRACE)]
+pub async fn configure_database(db_url: &str, db_pool_min_size: u32, db_pool_max_size: u32) -> Result<PgPool, sqlx::Error> {
+    let pool = database_pool(db_url, db_pool_min_size, db_pool_max_size).await?;
+    sqlx::migrate!().run(&pool).await?;
+    Ok(pool)
 }

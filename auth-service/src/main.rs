@@ -1,13 +1,13 @@
 use auth_service::app_state::AppState;
-use auth_service::config::Config;
+use auth_service::config::{Config, ConfigType, StoreEngine};
 use auth_service::services::{
-    HashmapTwoFactorAuthCodeStore, HashmapUserStore, HashsetBannedTokenStore, MockEmailClient,
+    BannedTokenStoreType, EmailClientType, HashmapTwoFactorAuthCodeStore, HashmapUserStore,
+    HashsetBannedTokenStore, MockEmailClient, PostgresUserStore, TwoFactorAuthCodeStoreType,
+    UserStoreType,
 };
-use auth_service::{get_database_pool, Application};
+use auth_service::{configure_database, Application};
 use fmt::format::FmtSpan;
-use sqlx::PgPool;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::sync::Arc;
 use tracing::info;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
@@ -24,28 +24,41 @@ async fn main() {
         .init();
     info!("Initialized: Tracing");
 
-    let config = Config::init_from_env_and_cli();
+    let config_type = ConfigType::new(Config::init_from_env_and_cli());
+    let config = config_type.inner();
 
     let log_level = config.log.clone();
     reload_handle
         .modify(|level_filter| *level_filter = LevelFilter::from_level(log_level.into()))
         .expect("Failed to modify log level filter");
 
-    let db_pool = configure_database(&config)
-        .await
-        .expect("Failed to configure database");
-    info!("Initialized: Database");
+    let user_store_type = match config.store_engine {
+        StoreEngine::Memory => {
+            info!("Initialized: Memory User Store");
+            UserStoreType::new(HashmapUserStore::default())
+        }
+        StoreEngine::Database => {
+            info!("Initialized: Database User Store");
+            let pool = configure_database(
+                &config.database_url(None),
+                config.db_pool_min_size,
+                config.db_pool_max_size,
+            )
+            .await
+            .expect("Failed to configure database");
+            UserStoreType::new(PostgresUserStore::new(pool))
 
-    let user_store = HashmapUserStore::default();
-    info!("Initialized: User Store");
+        }
+    };
 
-    let banned_token_store = HashsetBannedTokenStore::default();
+    let banned_token_store_type = BannedTokenStoreType::new(HashsetBannedTokenStore::default());
     info!("Initialized: Banned Token Store");
 
-    let two_factor_auth_code_store = HashmapTwoFactorAuthCodeStore::default();
+    let two_factor_auth_code_store_type =
+        TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default());
     info!("Initialized: Two Factor Auth Code Store");
 
-    let email_client = MockEmailClient;
+    let email_client_type = EmailClientType::new(MockEmailClient);
     info!("Initialized: Email Client");
 
     let ip_address = if let Some(v6) = config.ipv6 {
@@ -59,11 +72,11 @@ async fn main() {
     info!("Initialized: Listening address: {}", socket_addr);
 
     let app_state = AppState::new(
-        Arc::new(user_store),
-        Arc::new(banned_token_store),
-        Arc::new(two_factor_auth_code_store),
-        Arc::new(email_client),
-        Arc::new(config),
+        user_store_type,
+        banned_token_store_type,
+        two_factor_auth_code_store_type,
+        email_client_type,
+        config_type,
     );
     info!("Initialized: App State");
 
@@ -73,15 +86,4 @@ async fn main() {
         .run()
         .await
         .expect("Failed to run app");
-}
-
-async fn configure_database(config: &Config) -> Result<PgPool, sqlx::Error> {
-    let pool = get_database_pool(
-        &config.database_url(),
-        config.db_pool_min_size,
-        config.db_pool_max_size,
-    )
-    .await?;
-    sqlx::migrate!().run(&pool).await?;
-    Ok(pool)
 }

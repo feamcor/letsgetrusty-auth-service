@@ -1,12 +1,11 @@
 use crate::helpers::TestApp;
-use auth_service::domain::{Email, LoginAttemptId, TwoFactorAuthCode, SAFE_PASSWORD_LENGTH_RANGE};
+use auth_service::domain::{Email, LoginAttemptId, SAFE_PASSWORD_LENGTH_RANGE, TwoFactorAuthCode};
 use auth_service::routes::TwoFactorAuthResponse;
-use auth_service::services::TwoFactorAuthCodeStore;
-use fake::faker::internet::en::{DomainSuffix, SafeEmail};
 use fake::Fake;
+use fake::faker::internet::en::{DomainSuffix, SafeEmail};
 use mime::APPLICATION_JSON;
-use reqwest::header::CONTENT_TYPE;
 use reqwest::StatusCode;
+use reqwest::header::CONTENT_TYPE;
 use serde_json::json;
 
 #[tokio::test]
@@ -138,6 +137,7 @@ async fn should_return_401_if_old_attempt_id() {
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
     let store = &app.two_factor_auth_code_store;
     let (_, auth_code) = store
+        .inner()
         .get_code(&Email::parse(&email).unwrap())
         .await
         .unwrap();
@@ -174,6 +174,7 @@ async fn should_return_401_if_old_auth_code() {
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
     let store = &app.two_factor_auth_code_store;
     let (_, auth_code) = store
+        .inner()
         .get_code(&Email::parse(&email).unwrap())
         .await
         .unwrap();
@@ -217,6 +218,7 @@ async fn should_return_401_if_same_code_twice() {
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
     let store = &app.two_factor_auth_code_store;
     let (attempt_id, auth_code) = store
+        .inner()
         .get_code(&Email::parse(&email).unwrap())
         .await
         .unwrap();

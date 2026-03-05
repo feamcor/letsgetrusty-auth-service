@@ -1,11 +1,10 @@
 use crate::app_state::AppState;
-use crate::services::BannedTokenStore;
 use crate::utils::api_error::ApiError;
 use crate::utils::auth::validate_token;
+use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::Json;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -24,11 +23,12 @@ pub async fn verify_token(
     Json(request): Json<VerifyTokenRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     let config = &state.config;
-    validate_token(&request.token, &config.jwt_secret.as_ref().unwrap())
+    validate_token(&request.token, config.inner().jwt_secret.as_ref().unwrap())
         .await
         .map_err(|_| ApiError::TokenInvalid)?;
-    let store = &state.banned_token_store;
-    let is_banned = store
+    let is_banned = state
+        .banned_token_store
+        .inner()
         .is_token_banned(&request.token)
         .await
         .map_err(|e| ApiError::UnexpectedError(e.into()))?;

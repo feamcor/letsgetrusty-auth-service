@@ -1,14 +1,13 @@
 use crate::helpers::TestApp;
 use auth_service::domain::{Email, SAFE_PASSWORD_LENGTH_RANGE};
-use auth_service::utils::auth::JWT_COOKIE_NAME;
-use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
-use fake::Fake;
-use mime::APPLICATION_JSON;
-use reqwest::header::CONTENT_TYPE;
-use reqwest::StatusCode;
-use serde_json::{json, Value};
 use auth_service::routes::TwoFactorAuthResponse;
-use auth_service::services::TwoFactorAuthCodeStore;
+use auth_service::utils::auth::JWT_COOKIE_NAME;
+use fake::Fake;
+use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
+use mime::APPLICATION_JSON;
+use reqwest::StatusCode;
+use reqwest::header::CONTENT_TYPE;
+use serde_json::{Value, json};
 
 #[tokio::test]
 async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
@@ -65,6 +64,7 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
         let email = Email::parse(email).unwrap();
         let (stored_login_attempt_id, _) = app
             .two_factor_auth_code_store
+            .inner()
             .get_code(&email)
             .await
             .expect("Login attempt ID not found in store");

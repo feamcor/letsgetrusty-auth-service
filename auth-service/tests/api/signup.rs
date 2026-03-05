@@ -67,6 +67,7 @@ async fn should_return_400_if_invalid_input() {
 
 #[tokio::test]
 async fn should_return_409_if_user_already_exists() {
+    tracing_subscriber::fmt().init();
     let app = TestApp::new().await;
     let request = json!({
         "email": SafeEmail().fake::<String>().as_str(),

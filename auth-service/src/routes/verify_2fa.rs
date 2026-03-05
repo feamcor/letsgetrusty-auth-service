@@ -1,12 +1,12 @@
 use crate::app_state::AppState;
 use crate::domain::{Email, LoginAttemptId, TwoFactorAuthCode};
-use crate::services::{TwoFactorAuthCodeStore, TwoFactorAuthCodeStoreError};
+use crate::services::TwoFactorAuthCodeStoreError;
 use crate::utils::api_error::ApiError;
 use crate::utils::auth::generate_auth_cookie;
+use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::Json;
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -32,7 +32,7 @@ pub async fn verify_2fa(
     let email = Email::parse(&request.email)?;
     let attempt_id = LoginAttemptId::parse(request.login_attempt_id)?;
     let auth_code = TwoFactorAuthCode::parse(request.two_factor_auth_code)?;
-    let auth_code_store = &state.two_factor_auth_code_store;
+    let auth_code_store = state.two_factor_auth_code_store.inner();
     let (stored_attempt_id, stored_auth_code) = match auth_code_store.get_code(&email).await {
         Ok(code) => code,
         Err(TwoFactorAuthCodeStoreError::CodeNotFound) => {
@@ -46,7 +46,7 @@ pub async fn verify_2fa(
         return Err(ApiError::IncorrectCredentials);
     }
     auth_code_store.remove_code(&email).await?;
-    let config = &state.config;
+    let config = state.config.inner();
     let cookie = generate_auth_cookie(
         &email,
         config.jwt_secret.as_ref().unwrap(),

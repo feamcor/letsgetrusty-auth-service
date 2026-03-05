@@ -28,6 +28,7 @@ chrono = "0.4.44"
 rand = "0.10.0"
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "tls-rustls", "macros", "migrate", "postgres"] }
 tokio-util = "0.7.18"
+argon2 = { version = "0.5.3", features = ["std"] }
 
 [dev-dependencies]
 reqwest = { version = "0.13.2", default-features = false, features = ["json", "cookies"] }

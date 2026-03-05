@@ -1,11 +1,10 @@
 use crate::app_state::AppState;
 use crate::domain::User;
-use crate::services::UserStore;
 use crate::utils::api_error::ApiError;
+use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::Json;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -36,8 +35,9 @@ pub async fn signup(
         request.email.as_str(),
         request.password.as_str(),
         request.requires_2fa,
-    )?;
-    let _ = &state.user_store.add_user(user).await?;
+    )
+    .await?;
+    let _ = state.user_store.inner().add_user(user).await?;
     let response = Json(SignupResponse {
         message: "User created successfully".to_string(),
     });

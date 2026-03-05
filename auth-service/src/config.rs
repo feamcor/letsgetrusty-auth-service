@@ -1,3 +1,11 @@
+pub mod consts;
+
+mod log_level;
+pub use log_level::LogLevel;
+
+mod store_engine;
+pub use store_engine::StoreEngine;
+
 use clap::ArgGroup;
 use clap::Parser;
 use clap::ValueEnum;
@@ -7,72 +15,11 @@ use secrecy::{ExposeSecret, SecretString};
 use std::env;
 use std::fmt;
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 
 #[allow(unused_imports)]
 use tracing::Level;
-
-pub mod consts {
-    use super::*;
-
-    pub const AUTH_SERVICE_HOST_IPV4: &str = "AUTH_SERVICE_HOST_IPV4";
-    pub const AUTH_SERVICE_HOST_IPV6: &str = "AUTH_SERVICE_HOST_IPV6";
-    pub const AUTH_SERVICE_PORT: &str = "AUTH_SERVICE_PORT";
-    pub const AUTH_SERVICE_LOG: &str = "AUTH_SERVICE_LOG";
-    pub const AUTH_SERVICE_DB_HOSTNAME: &str = "AUTH_SERVICE_DB_HOSTNAME";
-    pub const AUTH_SERVICE_DB_PORT: &str = "AUTH_SERVICE_DB_PORT";
-    pub const AUTH_SERVICE_DB_DATABASE: &str = "AUTH_SERVICE_DB_NAME";
-    pub const AUTH_SERVICE_DB_USERNAME: &str = "AUTH_SERVICE_DB_USERNAME";
-    pub const AUTH_SERVICE_DB_PASSWORD: &str = "AUTH_SERVICE_DB_PASSWORD";
-    pub const AUTH_SERVICE_DB_POOL_MIN_SIZE: &str = "AUTH_SERVICE_DB_POOL_MIN_SIZE";
-    pub const AUTH_SERVICE_DB_POOL_MAX_SIZE: &str = "AUTH_SERVICE_DB_POOL_MAX_SIZE";
-    pub const AUTH_SERVICE_JWT_TTL_SECONDS: &str = "AUTH_SERVICE_JWT_TTL_SECONDS";
-    pub const AUTH_SERVICE_JWT_SECRET: &str = "AUTH_SERVICE_JWT_SECRET";
-    pub const APP_SERVICE_PORT: &str = "APP_SERVICE_PORT";
-
-    pub const AUTH_SERVICE_HOST_IPV4_DEFAULT: Option<Ipv4Addr> = Some(Ipv4Addr::LOCALHOST);
-    pub const AUTH_SERVICE_HOST_IPV6_DEFAULT: Option<Ipv6Addr> = None;
-    pub const AUTH_SERVICE_PORT_DEFAULT: u16 = 3000;
-    pub const AUTH_SERVICE_LOG_DEFAULT: LogLevel = LogLevel::Info;
-    pub const AUTH_SERVICE_DB_HOSTNAME_DEFAULT: &str = "localhost";
-    pub const AUTH_SERVICE_DB_PORT_DEFAULT: u16 = 5432;
-    pub const AUTH_SERVICE_DB_DATABASE_DEFAULT: &str = "letsgetrusty";
-    pub const AUTH_SERVICE_DB_USERNAME_DEFAULT: &str = "administrator";
-    pub const AUTH_SERVICE_DB_PASSWORD_DEFAULT: Option<SecretString> = None;
-    pub const AUTH_SERVICE_DB_POOL_MIN_SIZE_DEFAULT: u32 = 1;
-    pub const AUTH_SERVICE_DB_POOL_MAX_SIZE_DEFAULT: u32 = 10;
-    pub const AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT: i64 = 900; // 15 minutes
-    pub const AUTH_SERVICE_JWT_SECRET_DEFAULT: Option<SecretString> = None;
-    pub const APP_SERVICE_PORT_DEFAULT: u16 = 8000;
-}
-
-#[derive(ValueEnum, Clone, Debug)]
-#[value(rename_all = "kebab-case")]
-pub enum LogLevel {
-    Trace,
-    Debug,
-    Info,
-    Warn,
-    Error,
-}
-
-impl Display for LogLevel {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}", self.to_possible_value().unwrap().get_name())
-    }
-}
-
-impl From<LogLevel> for Level {
-    fn from(log_level: LogLevel) -> Self {
-        match log_level {
-            LogLevel::Trace => Level::TRACE,
-            LogLevel::Debug => Level::DEBUG,
-            LogLevel::Info => Level::INFO,
-            LogLevel::Warn => Level::WARN,
-            LogLevel::Error => Level::ERROR,
-        }
-    }
-}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -182,6 +129,14 @@ pub struct Config {
 
     #[arg(
         long,
+        env = consts::AUTH_SERVICE_STORE_ENGINE,
+        default_value_t = consts::AUTH_SERVICE_STORE_ENGINE_DEFAULT,
+        help = "Engine to use for storing User data.",
+    )]
+    pub store_engine: StoreEngine,
+
+    #[arg(
+        long,
         env = consts::APP_SERVICE_PORT,
         default_value_t = consts::APP_SERVICE_PORT_DEFAULT,
         help = "Port where the app service listens on.",
@@ -207,6 +162,7 @@ impl Display for Config {
             .field("db_pool_max_size", &self.db_pool_max_size)
             .field("jwt_ttl_seconds", &self.jwt_ttl_seconds)
             .field("jwt_secret", &self.jwt_secret)
+            .field("store_engine", &self.store_engine)
             .field("app_service_port", &self.app_service_port)
             .finish()
     }
@@ -228,6 +184,7 @@ impl Default for Config {
             db_pool_max_size: consts::AUTH_SERVICE_DB_POOL_MAX_SIZE_DEFAULT,
             jwt_ttl_seconds: consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT,
             jwt_secret: consts::AUTH_SERVICE_JWT_SECRET_DEFAULT,
+            store_engine: consts::AUTH_SERVICE_STORE_ENGINE_DEFAULT,
             app_service_port: consts::APP_SERVICE_PORT_DEFAULT,
         }
     }
@@ -378,6 +335,18 @@ impl Config {
                 consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT
             });
 
+        let store_engine = env::var(consts::AUTH_SERVICE_STORE_ENGINE)
+            .ok()
+            .and_then(|s| StoreEngine::from_str(&s, true).ok())
+            .unwrap_or_else(|| {
+                warn!(
+                    "using default value: {}={}",
+                    consts::AUTH_SERVICE_STORE_ENGINE,
+                    consts::AUTH_SERVICE_STORE_ENGINE_DEFAULT,
+                );
+                consts::AUTH_SERVICE_STORE_ENGINE_DEFAULT
+            });
+
         let app_service_port = env::var(consts::APP_SERVICE_PORT)
             .ok()
             .and_then(|s| s.parse::<u16>().ok())
@@ -408,6 +377,7 @@ impl Config {
             db_pool_max_size,
             jwt_ttl_seconds,
             jwt_secret,
+            store_engine,
             app_service_port,
         }
     }
@@ -433,15 +403,33 @@ impl Config {
         config
     }
 
-    pub fn database_url(&self) -> String {
+    pub fn database_url(&self, db_database: Option<&str>) -> String {
+        let db_database = db_database.unwrap_or(&self.db_database);
         format!(
-            "postgresql://{}:{}@{}:{}/{}",
+            "postgresql://{}:{}@{}:{}/{}?options=-c%20search_path%3Dauth,public",
             self.db_username,
             self.db_password.as_ref().unwrap().expose_secret(),
             self.db_hostname,
             self.db_port,
-            self.db_database
+            db_database
         )
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ConfigType {
+    inner: Arc<Config>,
+}
+
+impl ConfigType {
+    pub fn new(config: Config) -> Self {
+        Self {
+            inner: Arc::new(config),
+        }
+    }
+
+    pub fn inner(&self) -> Arc<Config> {
+        self.inner.clone()
     }
 }
 
