@@ -1,17 +1,22 @@
-use crate::helpers::TestApp;
+use crate::helpers::{TestApp, TestAppAsyncContext};
 use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
 use auth_service::routes::SignupResponse;
-use fake::Fake;
 use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
+use fake::Fake;
 use mime::APPLICATION_JSON;
-use reqwest::StatusCode;
 use reqwest::header::CONTENT_TYPE;
-use serde_json::{Value, json};
+use reqwest::StatusCode;
+use serde_json::{json, Value};
+use test_context::test_context;
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_201_if_valid_input() {
-    let expected = SignupResponse { message: "User created successfully".to_string() };
-    let app = TestApp::new().await;
+async fn should_return_201_if_valid_input(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
+    let expected = SignupResponse {
+        message: "User created successfully".to_string(),
+    };
     let requests = [
         json!({
             "email": SafeEmail().fake::<String>().as_str(),
@@ -35,9 +40,11 @@ async fn should_return_201_if_valid_input() {
     }
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_400_if_invalid_input() {
-    let app = TestApp::new().await;
+async fn should_return_400_if_invalid_input(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let requests = [
         json!({
             "email": DomainSuffix().fake::<String>().as_str(),
@@ -65,9 +72,11 @@ async fn should_return_400_if_invalid_input() {
     }
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_409_if_user_already_exists() {
-    let app = TestApp::new().await;
+async fn should_return_409_if_user_already_exists(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let request = json!({
         "email": SafeEmail().fake::<String>().as_str(),
         "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str(),
@@ -88,9 +97,11 @@ async fn should_return_409_if_user_already_exists() {
     );
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_422_if_unprocessable_content() {
-    let app = TestApp::new().await;
+async fn should_return_422_if_unprocessable_content(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let requests = [
         json!({
             "email": SafeEmail().fake::<String>().as_str(),
@@ -125,9 +136,11 @@ async fn should_return_422_if_unprocessable_content() {
     }
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_500_if_unexpected_error() {
-    let app = TestApp::new().await;
+async fn should_return_500_if_unexpected_error(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let requests: [Value; 0] = [];
     for request in requests.iter() {
         let response = app.post_signup(&request).await;

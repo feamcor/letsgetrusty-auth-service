@@ -24,7 +24,8 @@ async fn main() {
         .init();
     info!("Initialized: Tracing");
 
-    let config_type = ConfigType::new(Config::init_from_env_and_cli());
+    let config = Config::init_from_env_and_cli();
+    let config_type = ConfigType::new(config);
     let config = config_type.inner();
 
     let log_level = config.log.clone();

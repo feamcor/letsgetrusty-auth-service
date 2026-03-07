@@ -10,10 +10,12 @@ use axum::http::Uri;
 use reqwest::cookie::Jar;
 use reqwest::{Client, Response};
 use serde::Serialize;
-use sqlx::postgres::PgPoolOptions;
-use sqlx::{Executor, PgPool};
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
+use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::{Ipv4Addr, SocketAddr};
+use std::str::FromStr;
 use std::sync::Arc;
+use test_context::AsyncTestContext;
 use uuid::Uuid;
 
 pub struct TestApp {
@@ -22,23 +24,28 @@ pub struct TestApp {
     pub cookie_jar: Arc<Jar>,
     pub banned_token_store: BannedTokenStoreType,
     pub two_factor_auth_code_store: TwoFactorAuthCodeStoreType,
+    pub db_url: Option<String>,
 }
 
 impl TestApp {
-    pub async fn new() -> Self {
-        let config_type = ConfigType::new(Config::init_from_env());
+    pub async fn new(test_db_name: &str) -> Self {
+        let config = Config::init_from_env();
+        let config_type = ConfigType::new(config);
         let config = config_type.inner();
-
+        let mut real_db_url = None;
         let user_store_type = match config.store_engine {
-            StoreEngine::Memory => {
-                UserStoreType::new(HashmapUserStore::default())
-            }
+            StoreEngine::Memory => UserStoreType::new(HashmapUserStore::default()),
             StoreEngine::Database => {
-                let pool = configure_database_for_testing(&config).await;
-                UserStoreType::new(PostgresUserStore::new(pool))
+                real_db_url = Some(config.database_url(None));
+                let test_db_pool = configure_database_for_testing(
+                    &real_db_url.as_ref().unwrap(),
+                    test_db_name,
+                    &config.database_url(Some(test_db_name)),
+                )
+                .await;
+                UserStoreType::new(PostgresUserStore::new(test_db_pool))
             }
         };
-
         let banned_token_store_type = BannedTokenStoreType::new(HashsetBannedTokenStore::default());
         let two_factor_auth_code_store_type =
             TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default());
@@ -76,6 +83,7 @@ impl TestApp {
             cookie_jar,
             banned_token_store: banned_token_store_type,
             two_factor_auth_code_store: two_factor_auth_code_store_type,
+            db_url: real_db_url,
         }
     }
 
@@ -138,24 +146,72 @@ impl TestApp {
     }
 }
 
-async fn configure_database_for_testing(config: &Config) -> PgPool {
-    let db_name = Uuid::now_v7().to_string();
-    let db_url = config.database_url(None);
+pub struct TestAppAsyncContext {
+    pub db_name: String,
+    pub db_url: Option<String>,
+}
+
+impl AsyncTestContext for TestAppAsyncContext {
+    async fn setup() -> Self {
+        Self {
+            db_name: Uuid::now_v7().to_string(),
+            db_url: None,
+        }
+    }
+
+    async fn teardown(self) {
+        if self.db_url.is_some() {
+            delete_database(&self.db_url.unwrap(), &self.db_name).await;
+        }
+    }
+}
+
+async fn configure_database_for_testing(
+    real_db_url: &str,
+    test_db_name: &str,
+    test_db_url: &str,
+) -> PgPool {
     let pool = PgPoolOptions::new()
-        .connect(&db_url)
+        .connect(&real_db_url)
         .await
-        .expect("Failed to create connection pool");
-    pool.execute(format!(r#"CREATE DATABASE "{}";"#, db_name).as_str())
+        .expect("Failed to connect to test database");
+    pool.execute(format!(r#"CREATE DATABASE "{}";"#, test_db_name).as_str())
         .await
-        .expect("Failed to create database");
-    let db_url = config.database_url(Some(&db_name));
+        .expect("Failed to create test database");
     let pool = PgPoolOptions::new()
-        .connect(&db_url)
+        .connect(&test_db_url)
         .await
-        .expect("Failed to create connection pool");
+        .expect("Failed to create to test database");
     sqlx::migrate!()
         .run(&pool)
         .await
-        .expect("Failed to migrate the database");
+        .expect("Failed to migrate the test database");
     pool
+}
+
+async fn delete_database(real_db_url: &str, test_db_name: &str) {
+    let options =
+        PgConnectOptions::from_str(real_db_url).expect("Failed to parse the database connection string");
+    let mut connection = PgConnection::connect_with(&options)
+        .await
+        .expect("Failed to connect to the app database");
+    connection
+        .execute(
+            format!(
+                r#"
+                SELECT pg_terminate_backend(pg_stat_activity.pid)
+                  FROM pg_stat_activity
+                 WHERE pg_stat_activity.datname = '{}'
+                   AND pid <> pg_backend_pid();
+                "#,
+                test_db_name
+            )
+            .as_str(),
+        )
+        .await
+        .expect("Failed to kill all connections to the test database");
+    connection
+        .execute(format!(r#"DROP DATABASE "{}";"#, test_db_name).as_str())
+        .await
+        .expect("Failed to drop the test database");
 }

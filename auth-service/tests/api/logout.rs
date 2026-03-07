@@ -1,16 +1,19 @@
-use crate::helpers::TestApp;
+use crate::helpers::{TestApp, TestAppAsyncContext};
 use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
 use auth_service::utils::auth::JWT_COOKIE_NAME;
-use fake::Fake;
 use fake::faker::internet::en::SafeEmail;
+use fake::Fake;
 use mime::APPLICATION_JSON;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{StatusCode, Url};
 use serde_json::json;
+use test_context::test_context;
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_200_if_valid_jwt() {
-    let app = TestApp::new().await;
+async fn should_return_200_if_valid_jwt(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let login_request = json!({
         "email": SafeEmail().fake::<String>().as_str(),
         "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
@@ -38,9 +41,11 @@ async fn should_return_200_if_valid_jwt() {
     assert!(is_banned.unwrap());
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_400_if_logout_called_twice_in_a_row() {
-    let app = TestApp::new().await;
+async fn should_return_400_if_logout_called_twice_in_a_row(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let login_request = json!({
         "email": SafeEmail().fake::<String>().as_str(),
         "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
@@ -64,9 +69,11 @@ async fn should_return_400_if_logout_called_twice_in_a_row() {
     );
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_400_if_jwt_cookie_missing() {
-    let app = TestApp::new().await;
+async fn should_return_400_if_jwt_cookie_missing(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let response = app.post_logout().await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
@@ -75,9 +82,11 @@ async fn should_return_400_if_jwt_cookie_missing() {
     );
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_401_if_invalid_token() {
-    let app = TestApp::new().await;
+async fn should_return_401_if_invalid_token(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     app.cookie_jar.add_cookie_str(
         &format!(
             "{}=invalid; HttpOnly; SameSite=Lax; Secure; Path=/",

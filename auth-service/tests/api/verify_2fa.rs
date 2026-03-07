@@ -1,16 +1,19 @@
-use crate::helpers::TestApp;
-use auth_service::domain::{Email, LoginAttemptId, SAFE_PASSWORD_LENGTH_RANGE, TwoFactorAuthCode};
+use crate::helpers::{TestApp, TestAppAsyncContext};
+use auth_service::domain::{Email, LoginAttemptId, TwoFactorAuthCode, SAFE_PASSWORD_LENGTH_RANGE};
 use auth_service::routes::TwoFactorAuthResponse;
-use fake::Fake;
 use fake::faker::internet::en::{DomainSuffix, SafeEmail};
+use fake::Fake;
 use mime::APPLICATION_JSON;
-use reqwest::StatusCode;
 use reqwest::header::CONTENT_TYPE;
+use reqwest::StatusCode;
 use serde_json::json;
+use test_context::test_context;
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn verify_2fa_successful() {
-    let app = TestApp::new().await;
+async fn verify_2fa_successful(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let email = SafeEmail().fake::<String>();
     let password = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>();
     let signup_request = json!({
@@ -44,9 +47,11 @@ async fn verify_2fa_successful() {
     );
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_400_if_invalid_input() {
-    let app = TestApp::new().await;
+async fn should_return_400_if_invalid_input(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let requests = [
         json!({
             "email": DomainSuffix().fake::<String>().as_str(),
@@ -74,9 +79,11 @@ async fn should_return_400_if_invalid_input() {
     }
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_401_if_incorrect_credentials() {
-    let app = TestApp::new().await;
+async fn should_return_401_if_incorrect_credentials(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let email = SafeEmail().fake::<String>();
     let password = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>();
     let signup_request = json!({
@@ -110,9 +117,11 @@ async fn should_return_401_if_incorrect_credentials() {
     );
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_401_if_old_attempt_id() {
-    let app = TestApp::new().await;
+async fn should_return_401_if_old_attempt_id(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let email = SafeEmail().fake::<String>();
     let password = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>();
     let signup_request = json!({
@@ -154,9 +163,11 @@ async fn should_return_401_if_old_attempt_id() {
     );
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_401_if_old_auth_code() {
-    let app = TestApp::new().await;
+async fn should_return_401_if_old_auth_code(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let email = SafeEmail().fake::<String>();
     let password = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>();
     let signup_request = json!({
@@ -198,9 +209,11 @@ async fn should_return_401_if_old_auth_code() {
     );
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_401_if_same_code_twice() {
-    let app = TestApp::new().await;
+async fn should_return_401_if_same_code_twice(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let email = SafeEmail().fake::<String>();
     let password = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>();
     let signup_request = json!({
@@ -237,9 +250,11 @@ async fn should_return_401_if_same_code_twice() {
     );
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_422_if_malformed_input() {
-    let app = TestApp::new().await;
+async fn should_return_422_if_malformed_input(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let requests = [
         json!(null),
         json!(true),

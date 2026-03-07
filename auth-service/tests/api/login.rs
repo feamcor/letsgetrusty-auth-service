@@ -1,4 +1,4 @@
-use crate::helpers::TestApp;
+use crate::helpers::{TestApp, TestAppAsyncContext};
 use auth_service::domain::{Email, SAFE_PASSWORD_LENGTH_RANGE};
 use auth_service::routes::TwoFactorAuthResponse;
 use auth_service::utils::auth::JWT_COOKIE_NAME;
@@ -8,10 +8,13 @@ use mime::APPLICATION_JSON;
 use reqwest::StatusCode;
 use reqwest::header::CONTENT_TYPE;
 use serde_json::{Value, json};
+use test_context::test_context;
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
-    let app = TestApp::new().await;
+async fn should_return_200_if_valid_credentials_and_2fa_disabled(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let requests = [json!({
         "email": SafeEmail().fake::<String>().as_str(),
         "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
@@ -34,9 +37,11 @@ async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
     }
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
-    let app = TestApp::new().await;
+async fn should_return_206_if_valid_credentials_and_2fa_enabled(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let requests = [json!({
         "email": SafeEmail().fake::<String>().as_str(),
         "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
@@ -72,9 +77,11 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     }
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_400_if_invalid_input() {
-    let app = TestApp::new().await;
+async fn should_return_400_if_invalid_input(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let requests = [
         json!({
             "email": SafeEmail().fake::<String>().as_str(),
@@ -99,9 +106,11 @@ async fn should_return_400_if_invalid_input() {
     }
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_401_if_incorrect_credentials() {
-    let app = TestApp::new().await;
+async fn should_return_401_if_incorrect_credentials(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let requests = [json!({
         "email": SafeEmail().fake::<String>().as_str(),
         "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
@@ -123,9 +132,11 @@ async fn should_return_401_if_incorrect_credentials() {
     }
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_422_if_unprocessable_content() {
-    let app = TestApp::new().await;
+async fn should_return_422_if_unprocessable_content(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let requests = [
         json!({"email": SafeEmail().fake::<String>().as_str()}),
         json!({"password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()}),
@@ -141,9 +152,11 @@ async fn should_return_422_if_unprocessable_content() {
     }
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_500_if_unexpected_error() {
-    let app = TestApp::new().await;
+async fn should_return_500_if_unexpected_error(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let requests: [Value; 0] = [];
     for request in requests.iter() {
         let response = app.post_login(&request).await;
