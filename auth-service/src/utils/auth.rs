@@ -16,14 +16,14 @@ pub fn generate_auth_cookie(
     Ok(create_auth_cookie(token))
 }
 
+#[must_use]
 pub fn create_auth_cookie(token: String) -> Cookie<'static> {
-    let cookie = Cookie::build((JWT_COOKIE_NAME, token))
+    Cookie::build((JWT_COOKIE_NAME, token))
         .http_only(true) // prevent JavaScript from accessing the cookie
         .same_site(SameSite::Lax) // send cookie with "same-site" requests, and with "cross-site" top-level navigations.
         .secure(true)
         .path("/") // apply cookie to all URLs on the server
-        .build();
-    cookie
+        .build()
 }
 
 #[derive(thiserror::Error, Debug)]

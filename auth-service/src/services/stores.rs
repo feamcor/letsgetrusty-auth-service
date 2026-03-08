@@ -9,3 +9,6 @@ pub use store_users_postgres::*;
 
 mod store_banned_tokens_hashset;
 pub use store_banned_tokens_hashset::*;
+
+mod store_banned_tokens_redis;
+pub use store_banned_tokens_redis::*;

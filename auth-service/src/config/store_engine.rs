@@ -5,8 +5,8 @@ use std::fmt::{Display, Formatter};
 #[derive(ValueEnum, Clone, Debug)]
 #[value(rename_all = "kebab-case")]
 pub enum StoreEngine {
-    Memory,
-    Database,
+    Ephemeral,
+    Server,
 }
 
 impl Display for StoreEngine {

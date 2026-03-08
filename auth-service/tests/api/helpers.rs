@@ -2,10 +2,10 @@ use auth_service::app_state::AppState;
 use auth_service::config::{Config, ConfigType, StoreEngine};
 use auth_service::services::{
     BannedTokenStoreType, EmailClientType, HashmapTwoFactorAuthCodeStore, HashmapUserStore,
-    HashsetBannedTokenStore, MockEmailClient, PostgresUserStore, TwoFactorAuthCodeStoreType,
-    UserStoreType,
+    HashsetBannedTokenStore, MockEmailClient, PostgresUserStore, RedisBannedTokenStore,
+    TwoFactorAuthCodeStoreType, UserStoreType,
 };
-use auth_service::Application;
+use auth_service::{configure_cache, Application};
 use axum::http::Uri;
 use reqwest::cookie::Jar;
 use reqwest::{Client, Response};
@@ -16,6 +16,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
 use test_context::AsyncTestContext;
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 pub struct TestApp {
@@ -34,8 +35,8 @@ impl TestApp {
         let config = config_type.inner();
         let mut real_db_url = None;
         let user_store_type = match config.store_engine {
-            StoreEngine::Memory => UserStoreType::new(HashmapUserStore::default()),
-            StoreEngine::Database => {
+            StoreEngine::Ephemeral => UserStoreType::new(HashmapUserStore::default()),
+            StoreEngine::Server => {
                 real_db_url = Some(config.database_url(None));
                 let test_db_pool = configure_database_for_testing(
                     &real_db_url.as_ref().unwrap(),
@@ -46,7 +47,15 @@ impl TestApp {
                 UserStoreType::new(PostgresUserStore::new(test_db_pool))
             }
         };
-        let banned_token_store_type = BannedTokenStoreType::new(HashsetBannedTokenStore::default());
+        let banned_token_store_type = match config.store_engine {
+            StoreEngine::Ephemeral => BannedTokenStoreType::new(HashsetBannedTokenStore::default()),
+            StoreEngine::Server => {
+                let connection =
+                    configure_cache(&config.cache_url()).expect("Failed to configure cache");
+                let connection = RwLock::new(connection);
+                BannedTokenStoreType::new(RedisBannedTokenStore::new(connection))
+            }
+        };
         let two_factor_auth_code_store_type =
             TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default());
         let email_client_type = EmailClientType::new(MockEmailClient);
@@ -190,8 +199,8 @@ async fn configure_database_for_testing(
 }
 
 async fn delete_database(real_db_url: &str, test_db_name: &str) {
-    let options =
-        PgConnectOptions::from_str(real_db_url).expect("Failed to parse the database connection string");
+    let options = PgConnectOptions::from_str(real_db_url)
+        .expect("Failed to parse the database connection string");
     let mut connection = PgConnection::connect_with(&options)
         .await
         .expect("Failed to connect to the app database");

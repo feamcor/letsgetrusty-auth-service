@@ -17,8 +17,7 @@ impl TwoFactorAuthCode {
             Ok(Self(code))
         } else {
             Err(TwoFactorAuthCodeError(format!(
-                "{} is not a valid {}-digit 2FA code",
-                code, TWO_FACTOR_AUTH_CODE_LENGTH
+                "{code} is not a valid {TWO_FACTOR_AUTH_CODE_LENGTH}-digit 2FA code",
             )))
         }
     }
@@ -34,7 +33,7 @@ impl Default for TwoFactorAuthCode {
     fn default() -> Self {
         let mut rng = rand::rng();
         let code: u32 = rng.random_range(0..1_000_000);
-        Self(format!("{:06}", code))
+        Self(format!("{code:06}"))
     }
 }
 

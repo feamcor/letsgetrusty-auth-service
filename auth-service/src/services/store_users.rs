@@ -20,7 +20,7 @@ pub trait UserStore: Send + Sync {
     async fn validate_user(&self, email: &str, raw_password: &str) -> Result<(), UserStoreError> {
         let user = self.get_user(email).await?;
         match user.password.verify_raw_password(raw_password).await {
-            Ok(_) => Ok(()),
+            Ok(()) => Ok(()),
             Err(_) => Err(UserStoreError::IncorrectCredentials(email.to_string())),
         }
     }
@@ -38,6 +38,7 @@ impl UserStoreType {
         }
     }
 
+    #[must_use]
     pub fn inner(&self) -> Arc<dyn UserStore> {
         self.inner.clone()
     }

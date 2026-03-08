@@ -63,6 +63,23 @@ pub struct Config {
 
     #[arg(
         long,
+        env = consts::AUTH_SERVICE_CACHE_HOSTNAME,
+        default_value_t = String::from(consts::AUTH_SERVICE_CACHE_HOSTNAME_DEFAULT),
+        help = "Hostname of the cache server.",
+    )]
+    pub cache_hostname: String,
+
+    #[arg(
+        long,
+        env = consts::AUTH_SERVICE_CACHE_PORT,
+        default_value_t = consts::AUTH_SERVICE_CACHE_PORT_DEFAULT,
+        help = "Port of the cache server.",
+        value_parser = clap::value_parser!(u16).range(1024..),
+    )]
+    pub cache_port: u16,
+
+    #[arg(
+        long,
         env = consts::AUTH_SERVICE_DB_HOSTNAME,
         default_value_t = String::from(consts::AUTH_SERVICE_DB_HOSTNAME_DEFAULT),
         help = "Hostname of the database server.",
@@ -131,7 +148,7 @@ pub struct Config {
         long,
         env = consts::AUTH_SERVICE_STORE_ENGINE,
         default_value_t = consts::AUTH_SERVICE_STORE_ENGINE_DEFAULT,
-        help = "Engine to use for storing User data.",
+        help = "Engine to be used by the data stores.",
     )]
     pub store_engine: StoreEngine,
 
@@ -146,24 +163,25 @@ pub struct Config {
 }
 
 impl Display for Config {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("Config")
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Config")
+            .field("app_service_port", &self.app_service_port)
+            .field("cache_hostname", &self.cache_hostname)
+            .field("cache_port", &self.cache_port)
+            .field("db_database", &self.db_database)
+            .field("db_hostname", &self.db_hostname)
+            .field("db_password", &self.db_password)
+            .field("db_pool_max_size", &self.db_pool_max_size)
+            .field("db_pool_min_size", &self.db_pool_min_size)
+            .field("db_port", &self.db_port)
+            .field("db_username", &self.db_username)
             .field("ipv4", &self.ipv4)
             .field("ipv6", &self.ipv6)
-            .field("port", &self.port)
-            .field("log", &self.log)
-            .field("db_hostname", &self.db_hostname)
-            .field("db_port", &self.db_port)
-            .field("db_database", &self.db_database)
-            .field("db_username", &self.db_username)
-            .field("db_password", &self.db_password)
-            .field("db_pool_min_size", &self.db_pool_min_size)
-            .field("db_pool_max_size", &self.db_pool_max_size)
-            .field("jwt_ttl_seconds", &self.jwt_ttl_seconds)
             .field("jwt_secret", &self.jwt_secret)
+            .field("jwt_ttl_seconds", &self.jwt_ttl_seconds)
+            .field("log", &self.log)
+            .field("port", &self.port)
             .field("store_engine", &self.store_engine)
-            .field("app_service_port", &self.app_service_port)
             .finish()
     }
 }
@@ -171,21 +189,23 @@ impl Display for Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            app_service_port: consts::APP_SERVICE_PORT_DEFAULT,
+            cache_hostname: String::from(consts::AUTH_SERVICE_CACHE_HOSTNAME_DEFAULT),
+            cache_port: consts::AUTH_SERVICE_CACHE_PORT_DEFAULT,
+            db_database: String::from(consts::AUTH_SERVICE_DB_DATABASE_DEFAULT),
+            db_hostname: String::from(consts::AUTH_SERVICE_DB_HOSTNAME_DEFAULT),
+            db_password: consts::AUTH_SERVICE_DB_PASSWORD_DEFAULT,
+            db_pool_max_size: consts::AUTH_SERVICE_DB_POOL_MAX_SIZE_DEFAULT,
+            db_pool_min_size: consts::AUTH_SERVICE_DB_POOL_MIN_SIZE_DEFAULT,
+            db_port: consts::AUTH_SERVICE_DB_PORT_DEFAULT,
+            db_username: String::from(consts::AUTH_SERVICE_DB_USERNAME_DEFAULT),
             ipv4: consts::AUTH_SERVICE_HOST_IPV4_DEFAULT,
             ipv6: consts::AUTH_SERVICE_HOST_IPV6_DEFAULT,
-            port: consts::AUTH_SERVICE_PORT_DEFAULT,
-            log: consts::AUTH_SERVICE_LOG_DEFAULT,
-            db_hostname: String::from(consts::AUTH_SERVICE_DB_HOSTNAME_DEFAULT),
-            db_port: consts::AUTH_SERVICE_DB_PORT_DEFAULT,
-            db_database: String::from(consts::AUTH_SERVICE_DB_DATABASE_DEFAULT),
-            db_username: String::from(consts::AUTH_SERVICE_DB_USERNAME_DEFAULT),
-            db_password: consts::AUTH_SERVICE_DB_PASSWORD_DEFAULT,
-            db_pool_min_size: consts::AUTH_SERVICE_DB_POOL_MIN_SIZE_DEFAULT,
-            db_pool_max_size: consts::AUTH_SERVICE_DB_POOL_MAX_SIZE_DEFAULT,
-            jwt_ttl_seconds: consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT,
             jwt_secret: consts::AUTH_SERVICE_JWT_SECRET_DEFAULT,
+            jwt_ttl_seconds: consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT,
+            log: consts::AUTH_SERVICE_LOG_DEFAULT,
+            port: consts::AUTH_SERVICE_PORT_DEFAULT,
             store_engine: consts::AUTH_SERVICE_STORE_ENGINE_DEFAULT,
-            app_service_port: consts::APP_SERVICE_PORT_DEFAULT,
         }
     }
 }
@@ -256,6 +276,28 @@ impl Config {
                 consts::AUTH_SERVICE_LOG_DEFAULT
             });
 
+        let cache_hostname = env::var(consts::AUTH_SERVICE_CACHE_HOSTNAME).unwrap_or_else(|_| {
+            warn!(
+                "using default value: {}={}",
+                consts::AUTH_SERVICE_CACHE_HOSTNAME,
+                consts::AUTH_SERVICE_CACHE_HOSTNAME_DEFAULT,
+            );
+            consts::AUTH_SERVICE_CACHE_HOSTNAME_DEFAULT.to_string()
+        });
+
+        let cache_port = env::var(consts::AUTH_SERVICE_CACHE_PORT)
+            .ok()
+            .and_then(|s| s.parse::<u16>().ok())
+            .filter(|&p| p >= 1024)
+            .unwrap_or_else(|| {
+                warn!(
+                    "using default value: {}={}",
+                    consts::AUTH_SERVICE_CACHE_PORT,
+                    consts::AUTH_SERVICE_CACHE_PORT_DEFAULT,
+                );
+                consts::AUTH_SERVICE_CACHE_PORT_DEFAULT
+            });
+
         let db_hostname = env::var(consts::AUTH_SERVICE_DB_HOSTNAME).unwrap_or_else(|_| {
             warn!(
                 "using default value: {}={}",
@@ -299,7 +341,7 @@ impl Config {
         let db_pool_min_size = env::var(consts::AUTH_SERVICE_DB_POOL_MIN_SIZE)
             .ok()
             .and_then(|s| s.parse::<u32>().ok())
-            .filter(|&size| size >= 1 && size < 10)
+            .filter(|&size| (1..10).contains(&size))
             .unwrap_or_else(|| {
                 warn!(
                     "using default value: {}={}",
@@ -312,7 +354,7 @@ impl Config {
         let db_pool_max_size = env::var(consts::AUTH_SERVICE_DB_POOL_MAX_SIZE)
             .ok()
             .and_then(|s| s.parse::<u32>().ok())
-            .filter(|&size| size >= 1 && size < 100)
+            .filter(|&size| (1..100).contains(&size))
             .unwrap_or_else(|| {
                 warn!(
                     "using default value: {}={}",
@@ -325,7 +367,7 @@ impl Config {
         let jwt_ttl_seconds = env::var(consts::AUTH_SERVICE_JWT_TTL_SECONDS)
             .ok()
             .and_then(|s| s.parse::<i64>().ok())
-            .filter(|&ttl| ttl >= 300 && ttl < 3600)
+            .filter(|&ttl| (300..3600).contains(&ttl))
             .unwrap_or_else(|| {
                 warn!(
                     "using default value: {}={}",
@@ -364,21 +406,23 @@ impl Config {
         let jwt_secret = secret_from_environment(consts::AUTH_SERVICE_JWT_SECRET);
 
         Self {
+            app_service_port,
+            cache_hostname,
+            cache_port,
+            db_database: db_name,
+            db_hostname,
+            db_password,
+            db_pool_max_size,
+            db_pool_min_size,
+            db_port,
+            db_username,
             ipv4,
             ipv6,
-            port,
-            log,
-            db_hostname,
-            db_port,
-            db_database: db_name,
-            db_username,
-            db_password,
-            db_pool_min_size,
-            db_pool_max_size,
-            jwt_ttl_seconds,
             jwt_secret,
+            jwt_ttl_seconds,
+            log,
+            port,
             store_engine,
-            app_service_port,
         }
     }
 
@@ -391,18 +435,18 @@ impl Config {
         let mut config = Self::parse();
         let db_password = secret_from_environment(consts::AUTH_SERVICE_DB_PASSWORD);
         let jwt_secret = secret_from_environment(consts::AUTH_SERVICE_JWT_SECRET);
-        if db_password.is_none() || jwt_secret.is_none() {
-            panic!(
-                "{} and {} must be set in the environment",
-                consts::AUTH_SERVICE_DB_PASSWORD,
-                consts::AUTH_SERVICE_JWT_SECRET
-            );
-        }
+        assert!(
+            !(db_password.is_none() || jwt_secret.is_none()),
+            "{} and {} must be set in the environment",
+            consts::AUTH_SERVICE_DB_PASSWORD,
+            consts::AUTH_SERVICE_JWT_SECRET
+        );
         config.db_password = db_password;
         config.jwt_secret = jwt_secret;
         config
     }
 
+    #[must_use]
     pub fn database_url(&self, db_database: Option<&str>) -> String {
         let db_database = db_database.unwrap_or(&self.db_database);
         format!(
@@ -414,6 +458,11 @@ impl Config {
             db_database
         )
     }
+
+    #[must_use]
+    pub fn cache_url(&self) -> String {
+        format!("redis://{}:{}", self.cache_hostname, self.cache_port)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -422,12 +471,14 @@ pub struct ConfigType {
 }
 
 impl ConfigType {
+    #[must_use]
     pub fn new(config: Config) -> Self {
         Self {
             inner: Arc::new(config),
         }
     }
 
+    #[must_use]
     pub fn inner(&self) -> Arc<Config> {
         self.inner.clone()
     }

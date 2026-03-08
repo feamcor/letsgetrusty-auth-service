@@ -80,7 +80,7 @@ impl HashedPassword {
         });
         match task.await {
             Ok(result) => match result {
-                Ok(_) => Ok(()),
+                Ok(()) => Ok(()),
                 Err(_) => Err(PasswordError::PasswordMismatch),
             },
             Err(error) => {
@@ -231,7 +231,7 @@ mod tests {
     struct ValidPasswordFixture(pub String);
 
     impl quickcheck::Arbitrary for ValidPasswordFixture {
-        fn arbitrary(_g: &mut Gen) -> Self {
+        fn arbitrary(_: &mut Gen) -> Self {
             let password = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>();
             Self(password)
         }

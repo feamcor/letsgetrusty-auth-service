@@ -8,6 +8,7 @@ pub struct PostgresUserStore {
 }
 
 impl PostgresUserStore {
+    #[must_use]
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }

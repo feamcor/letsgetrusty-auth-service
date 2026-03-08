@@ -38,6 +38,7 @@ impl TwoFactorAuthCodeStoreType {
         }
     }
 
+    #[must_use]
     pub fn inner(&self) -> Arc<dyn TwoFactorAuthCodeStore> {
         self.inner.clone()
     }

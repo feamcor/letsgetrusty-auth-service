@@ -61,7 +61,7 @@ pub async fn login(
             .send_email(
                 &user.email,
                 "Auth Service Login Attempt",
-                &format!("2FA Code: {}", auth_code),
+                &format!("2FA Code: {auth_code}"),
             )
             .await?;
         state

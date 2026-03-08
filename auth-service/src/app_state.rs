@@ -13,6 +13,7 @@ pub struct AppState {
 }
 
 impl AppState {
+    #[must_use]
     pub fn new(
         user_store: UserStoreType,
         banned_token_store: BannedTokenStoreType,

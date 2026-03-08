@@ -29,6 +29,7 @@ impl EmailClientType {
         }
     }
 
+    #[must_use]
     pub fn inner(&self) -> Arc<dyn EmailClient> {
         self.inner.clone()
     }

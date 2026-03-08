@@ -37,7 +37,7 @@ pub async fn signup(
         request.requires_2fa,
     )
     .await?;
-    let _ = state.user_store.inner().add_user(user).await?;
+    state.user_store.inner().add_user(user).await?;
     let response = Json(SignupResponse {
         message: "User created successfully".to_string(),
     });

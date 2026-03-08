@@ -21,14 +21,14 @@ pub async fn logout(
     };
     let token = cookie.value().to_owned();
     let config = state.config.inner();
-    validate_token(&token, &config.jwt_secret.as_ref().unwrap())
+    validate_token(&token, config.jwt_secret.as_ref().unwrap())
         .await
         .map_err(|_| ApiError::TokenInvalid)?;
-    let jar = jar.remove(create_auth_cookie("".to_string()));
+    let jar = jar.remove(create_auth_cookie(String::new()));
     let _ = state
         .banned_token_store
         .inner()
-        .add_token(&token)
+        .add_token(&token, None)
         .await
         .map_err(|e| ApiError::UnexpectedError(e.into()));
     Ok((jar, StatusCode::OK.into_response()))
