@@ -19,7 +19,7 @@ async fn should_return_200_if_valid_credentials_and_2fa_disabled(ctx: &mut TestA
         "email": SafeEmail().fake::<String>().as_str(),
         "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
     })];
-    for request in requests.iter() {
+    for request in &requests {
         let signup_request = json!({
             "email": request.get("email").unwrap().as_str(),
             "password": request.get("password").unwrap().as_str(),
@@ -46,7 +46,7 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled(ctx: &mut TestAp
         "email": SafeEmail().fake::<String>().as_str(),
         "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
     })];
-    for request in requests.iter() {
+    for request in &requests {
         let signup_request = json!({
             "email": request.get("email").unwrap().as_str(),
             "password": request.get("password").unwrap().as_str(),
@@ -96,7 +96,7 @@ async fn should_return_400_if_invalid_input(ctx: &mut TestAppAsyncContext) {
             "password": Password(1..7).fake::<String>().as_str()
         }),
     ];
-    for request in requests.iter() {
+    for request in &requests {
         let response = app.post_login(request).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         assert_eq!(
@@ -115,7 +115,7 @@ async fn should_return_401_if_incorrect_credentials(ctx: &mut TestAppAsyncContex
         "email": SafeEmail().fake::<String>().as_str(),
         "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
     })];
-    for request in requests.iter() {
+    for request in &requests {
         let signup_request = json!({
             "email": request.get("email").unwrap().as_str(),
             "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str(),
@@ -141,13 +141,12 @@ async fn should_return_422_if_unprocessable_content(ctx: &mut TestAppAsyncContex
         json!({"email": SafeEmail().fake::<String>().as_str()}),
         json!({"password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()}),
     ];
-    for request in requests.iter() {
+    for request in &requests {
         let response = app.post_login(&request).await;
         assert_eq!(
             response.status(),
             StatusCode::UNPROCESSABLE_ENTITY,
-            "Input: {:?}",
-            request
+            "Input: {request:?}"
         );
     }
 }
@@ -158,13 +157,12 @@ async fn should_return_500_if_unexpected_error(ctx: &mut TestAppAsyncContext) {
     let app = TestApp::new(ctx.db_name.as_str()).await;
     ctx.db_url = app.db_url.clone();
     let requests: [Value; 0] = [];
-    for request in requests.iter() {
+    for request in &requests {
         let response = app.post_login(&request).await;
         assert_eq!(
             response.status(),
             StatusCode::INTERNAL_SERVER_ERROR,
-            "Input: {:?}",
-            request
+            "Input: {request:?}"
         );
         assert_eq!(
             response.headers().get(CONTENT_TYPE).unwrap(),

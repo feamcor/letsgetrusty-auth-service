@@ -15,11 +15,7 @@ pub enum LogLevel {
 
 impl Display for LogLevel {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.to_possible_value().unwrap().get_name()
-        )
+        write!(f, "{}", self.to_possible_value().unwrap().get_name())
     }
 }
 

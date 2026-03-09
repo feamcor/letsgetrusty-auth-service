@@ -29,7 +29,7 @@ async fn should_return_201_if_valid_input(ctx: &mut TestAppAsyncContext) {
             "requires2FA": true,
         }),
     ];
-    for request in requests.iter() {
+    for request in &requests {
         let response = app.post_signup(&request).await;
         assert_eq!(response.status(), StatusCode::CREATED);
         assert_eq!(
@@ -57,13 +57,12 @@ async fn should_return_400_if_invalid_input(ctx: &mut TestAppAsyncContext) {
             "requires2FA": false,
         }),
     ];
-    for request in requests.iter() {
+    for request in &requests {
         let response = app.post_signup(&request).await;
         assert_eq!(
             response.status(),
             StatusCode::BAD_REQUEST,
-            "Input: {:?}",
-            request
+            "Input: {request:?}"
         );
         assert_eq!(
             response.headers().get(CONTENT_TYPE).unwrap(),
@@ -125,13 +124,12 @@ async fn should_return_422_if_unprocessable_content(ctx: &mut TestAppAsyncContex
             "requires2FA": false
         }),
     ];
-    for request in requests.iter() {
+    for request in &requests {
         let response = app.post_signup(&request).await;
         assert_eq!(
             response.status(),
             StatusCode::UNPROCESSABLE_ENTITY,
-            "Input: {:?}",
-            request
+            "Input: {request:?}"
         );
     }
 }
@@ -142,13 +140,12 @@ async fn should_return_500_if_unexpected_error(ctx: &mut TestAppAsyncContext) {
     let app = TestApp::new(ctx.db_name.as_str()).await;
     ctx.db_url = app.db_url.clone();
     let requests: [Value; 0] = [];
-    for request in requests.iter() {
+    for request in &requests {
         let response = app.post_signup(&request).await;
         assert_eq!(
             response.status(),
             StatusCode::INTERNAL_SERVER_ERROR,
-            "Input: {:?}",
-            request
+            "Input: {request:?}"
         );
         assert_eq!(
             response.headers().get(CONTENT_TYPE).unwrap(),

@@ -39,7 +39,7 @@ impl TestApp {
             StoreEngine::Server => {
                 real_db_url = Some(config.database_url(None));
                 let test_db_pool = configure_database_for_testing(
-                    &real_db_url.as_ref().unwrap(),
+                    real_db_url.as_ref().unwrap(),
                     test_db_name,
                     &config.database_url(Some(test_db_name)),
                 )
@@ -97,7 +97,7 @@ impl TestApp {
     }
 
     pub async fn get_root(&self) -> Response {
-        let request_url = self.base_url.to_string();
+        let request_url = self.base_url.clone();
         self.http_client
             .get(&request_url)
             .send()
@@ -169,8 +169,8 @@ impl AsyncTestContext for TestAppAsyncContext {
     }
 
     async fn teardown(self) {
-        if self.db_url.is_some() {
-            delete_database(&self.db_url.unwrap(), &self.db_name).await;
+        if let Some(db_url) = self.db_url {
+            delete_database(&db_url, &self.db_name).await;
         }
     }
 }
@@ -181,14 +181,14 @@ async fn configure_database_for_testing(
     test_db_url: &str,
 ) -> PgPool {
     let pool = PgPoolOptions::new()
-        .connect(&real_db_url)
+        .connect(real_db_url)
         .await
         .expect("Failed to connect to test database");
-    pool.execute(format!(r#"CREATE DATABASE "{}";"#, test_db_name).as_str())
+    pool.execute(format!(r#"CREATE DATABASE "{test_db_name}";"#).as_str())
         .await
         .expect("Failed to create test database");
     let pool = PgPoolOptions::new()
-        .connect(&test_db_url)
+        .connect(test_db_url)
         .await
         .expect("Failed to create to test database");
     sqlx::migrate!()
@@ -207,20 +207,19 @@ async fn delete_database(real_db_url: &str, test_db_name: &str) {
     connection
         .execute(
             format!(
-                r#"
+                r"
                 SELECT pg_terminate_backend(pg_stat_activity.pid)
                   FROM pg_stat_activity
-                 WHERE pg_stat_activity.datname = '{}'
+                 WHERE pg_stat_activity.datname = '{test_db_name}'
                    AND pid <> pg_backend_pid();
-                "#,
-                test_db_name
+                "
             )
             .as_str(),
         )
         .await
         .expect("Failed to kill all connections to the test database");
     connection
-        .execute(format!(r#"DROP DATABASE "{}";"#, test_db_name).as_str())
+        .execute(format!(r#"DROP DATABASE "{test_db_name}";"#).as_str())
         .await
         .expect("Failed to drop the test database");
 }

@@ -134,12 +134,21 @@ pub struct Config {
 
     #[arg(
         long,
+        env = consts::AUTH_SERVICE_2FA_TTL_SECONDS,
+        default_value_t = consts::AUTH_SERVICE_2FA_TTL_SECONDS_DEFAULT,
+        help = "Time-to-live (TTL) for 2FA codes in seconds.",
+        value_parser = clap::value_parser!(u32).range(60..900),
+    )]
+    pub two_factor_auth_ttl_seconds: u32,
+
+    #[arg(
+        long,
         env = consts::AUTH_SERVICE_JWT_TTL_SECONDS,
         default_value_t = consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT,
         help = "Time-to-live (TTL) for JWT tokens in seconds.",
-        value_parser = clap::value_parser!(i64).range(300..3600),
+        value_parser = clap::value_parser!(u32).range(300..3600),
     )]
-    pub jwt_ttl_seconds: i64,
+    pub jwt_ttl_seconds: u32,
 
     #[arg(skip)]
     pub jwt_secret: Option<SecretString>,
@@ -182,6 +191,7 @@ impl Display for Config {
             .field("log", &self.log)
             .field("port", &self.port)
             .field("store_engine", &self.store_engine)
+            .field("two_factor_auth_ttl_seconds", &self.two_factor_auth_ttl_seconds)
             .finish()
     }
 }
@@ -206,6 +216,7 @@ impl Default for Config {
             log: consts::AUTH_SERVICE_LOG_DEFAULT,
             port: consts::AUTH_SERVICE_PORT_DEFAULT,
             store_engine: consts::AUTH_SERVICE_STORE_ENGINE_DEFAULT,
+            two_factor_auth_ttl_seconds: consts::AUTH_SERVICE_2FA_TTL_SECONDS_DEFAULT,
         }
     }
 }
@@ -366,7 +377,7 @@ impl Config {
 
         let jwt_ttl_seconds = env::var(consts::AUTH_SERVICE_JWT_TTL_SECONDS)
             .ok()
-            .and_then(|s| s.parse::<i64>().ok())
+            .and_then(|s| s.parse::<u32>().ok())
             .filter(|&ttl| (300..3600).contains(&ttl))
             .unwrap_or_else(|| {
                 warn!(
@@ -375,6 +386,19 @@ impl Config {
                     consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT,
                 );
                 consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT
+            });
+
+        let two_factor_auth_ttl_seconds = env::var(consts::AUTH_SERVICE_2FA_TTL_SECONDS)
+            .ok()
+            .and_then(|s| s.parse::<u32>().ok())
+            .filter(|&ttl| (60..900).contains(&ttl))
+            .unwrap_or_else(|| {
+                warn!(
+                    "using default value: {}={}",
+                    consts::AUTH_SERVICE_2FA_TTL_SECONDS,
+                    consts::AUTH_SERVICE_2FA_TTL_SECONDS_DEFAULT,
+                );
+                consts::AUTH_SERVICE_2FA_TTL_SECONDS_DEFAULT
             });
 
         let store_engine = env::var(consts::AUTH_SERVICE_STORE_ENGINE)
@@ -423,6 +447,7 @@ impl Config {
             log,
             port,
             store_engine,
+            two_factor_auth_ttl_seconds,
         }
     }
 

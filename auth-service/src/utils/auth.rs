@@ -100,7 +100,7 @@ mod tests {
         let cookie = generate_auth_cookie(
             &email,
             &secret,
-            consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT,
+            i64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT),
         )
         .unwrap();
         assert_eq!(cookie.name(), JWT_COOKIE_NAME);
@@ -131,7 +131,7 @@ mod tests {
         let result = generate_auth_token(
             &email,
             &secret,
-            consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT,
+            i64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT),
         )
         .unwrap();
         assert_eq!(result.split('.').count(), 3);
@@ -146,7 +146,7 @@ mod tests {
         let token = generate_auth_token(
             &email,
             &secret,
-            consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT,
+            i64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT),
         )
         .unwrap();
         let result = validate_token(
@@ -160,7 +160,7 @@ mod tests {
             .checked_add_signed(chrono::Duration::try_minutes(9).expect("valid duration"))
             .expect("valid timestamp")
             .timestamp();
-        assert!(result.exp > expiration as usize);
+        assert!(result.exp > usize::try_from(expiration).expect("valid expiration timestamp"));
     }
 
     #[tokio::test]

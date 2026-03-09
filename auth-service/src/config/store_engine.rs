@@ -10,11 +10,7 @@ pub enum StoreEngine {
 }
 
 impl Display for StoreEngine {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            formatter,
-            "{}",
-            self.to_possible_value().unwrap().get_name()
-        )
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.to_possible_value().unwrap().get_name())
     }
 }

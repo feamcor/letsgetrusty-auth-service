@@ -79,7 +79,7 @@ pub async fn login(
     let cookie = generate_auth_cookie(
         &user.email,
         config.jwt_secret.as_ref().unwrap(),
-        config.jwt_ttl_seconds,
+        i64::from(config.jwt_ttl_seconds),
     )?;
     let jar = jar.add(cookie);
     Ok((jar, StatusCode::OK.into_response()))

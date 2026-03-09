@@ -39,7 +39,7 @@ mod tests {
     use super::*;
     use crate::domain::SAFE_PASSWORD_LENGTH_RANGE;
     use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
-    use fake::{Fake, rand};
+    use fake::{rand, Fake};
 
     #[tokio::test]
     async fn should_return_ok_for_valid_input() {
@@ -49,9 +49,7 @@ mod tests {
         let result = User::try_new(&email, &password, requires_2fa).await;
         assert!(
             result.is_ok(),
-            "Failed for email: {} and password: {}",
-            email,
-            password
+            "Failed for email: {email} and password: {password}"
         );
     }
 

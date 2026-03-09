@@ -9,7 +9,7 @@ pub struct HashsetBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for HashsetBannedTokenStore {
-    async fn add_token(&self, token: &str, _ttl: Option<u64>) -> Result<(), BannedTokenStoreError> {
+    async fn add_token(&self, token: &str) -> Result<(), BannedTokenStoreError> {
         if self.tokens.read().await.contains(token) {
             Err(BannedTokenStoreError::TokenAlreadyExists(token.to_string()))
         } else {
@@ -40,10 +40,10 @@ mod tests {
         let store = HashsetBannedTokenStore::default();
         let token = "test_token";
 
-        assert!(store.add_token(token, None).await.is_ok());
+        assert!(store.add_token(token).await.is_ok());
         assert!(store.is_token_banned(token).await.unwrap());
 
-        let result = store.add_token(token, None).await;
+        let result = store.add_token(token).await;
         assert!(result.is_err());
         match result.unwrap_err() {
             BannedTokenStoreError::TokenAlreadyExists(t) => assert_eq!(t, token),
@@ -57,7 +57,7 @@ mod tests {
         let token = "test_token";
 
         assert!(!store.is_token_banned(token).await.unwrap());
-        store.add_token(token, None).await.unwrap();
+        store.add_token(token).await.unwrap();
         assert!(store.is_token_banned(token).await.unwrap());
         assert!(!store.is_token_banned("other_token").await.unwrap());
     }
@@ -67,7 +67,7 @@ mod tests {
         let store = HashsetBannedTokenStore::default();
         let token = "test_token";
 
-        store.add_token(token, None).await.unwrap();
+        store.add_token(token).await.unwrap();
         assert!(store.is_token_banned(token).await.unwrap());
 
         assert!(store.remove_token(token).await.is_ok());

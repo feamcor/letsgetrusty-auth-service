@@ -1,6 +1,9 @@
 mod store_2fa_codes_hashmap;
 pub use store_2fa_codes_hashmap::*;
 
+mod store_2fa_codes_redis;
+pub use store_2fa_codes_redis::*;
+
 mod store_users_hashmap;
 pub use store_users_hashmap::*;
 

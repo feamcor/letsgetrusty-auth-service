@@ -3,7 +3,7 @@ use crate::services::{BannedTokenStore, BannedTokenStoreError};
 use redis::{Commands, ExistenceCheck, SetExpiry, SetOptions};
 use std::fmt::Debug;
 use tokio::sync::RwLock;
-use tracing::{instrument, warn};
+use tracing::instrument;
 
 #[allow(unused_imports)]
 use tracing::Level;
@@ -29,14 +29,8 @@ impl RedisBannedTokenStore {
 #[async_trait::async_trait]
 impl BannedTokenStore for RedisBannedTokenStore {
     #[instrument(level = Level::TRACE)]
-    async fn add_token(&self, token: &str, ttl: Option<u64>) -> Result<(), BannedTokenStoreError> {
-        let ttl = ttl.unwrap_or_else(|| {
-            warn!(
-                "No TTL provided for banned token, using default TTL: {} seconds",
-                consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT
-            );
-            consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT as u64
-        });
+    async fn add_token(&self, token: &str) -> Result<(), BannedTokenStoreError> {
+        let ttl = u64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT);
         let key = token_key(token);
         let mut connection = self.connection.write().await;
         let options = SetOptions::default()
@@ -69,8 +63,6 @@ impl BannedTokenStore for RedisBannedTokenStore {
     }
 }
 
-const BANNED_TOKEN_KEY_PREFIX: &str = "banned_token:";
-
 fn token_key(token: &str) -> String {
-    format!("{BANNED_TOKEN_KEY_PREFIX}{token}")
+    format!("token:banned:{token}")
 }

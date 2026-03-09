@@ -69,7 +69,7 @@ async fn should_return_400_if_invalid_input(ctx: &mut TestAppAsyncContext) {
             "2FACode": "invalid",
         }),
     ];
-    for request in requests.iter() {
+    for request in &requests {
         let response = app.post_verify_2fa(&request).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         assert_eq!(
@@ -272,7 +272,7 @@ async fn should_return_422_if_malformed_input(ctx: &mut TestAppAsyncContext) {
         json!({"loginAttemptId": "string", "2FACode": "string"}),
         json!({"2FACode": "string", "email": "string"}),
     ];
-    for request in requests.iter() {
+    for request in &requests {
         let response = app.post_verify_2fa(&request).await;
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }

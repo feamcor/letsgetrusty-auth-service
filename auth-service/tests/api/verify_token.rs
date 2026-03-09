@@ -99,7 +99,7 @@ async fn should_return_422_if_malformed_input(ctx: &mut TestAppAsyncContext) {
         json!({"token": {}}),
         json!({"token": "string", "key": "value"}),
     ];
-    for request in requests.iter() {
+    for request in &requests {
         let response = app.post_verify_token(&request).await;
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }

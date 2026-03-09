@@ -89,8 +89,7 @@ async fn should_return_401_if_invalid_token(ctx: &mut TestAppAsyncContext) {
     ctx.db_url = app.db_url.clone();
     app.cookie_jar.add_cookie_str(
         &format!(
-            "{}=invalid; HttpOnly; SameSite=Lax; Secure; Path=/",
-            JWT_COOKIE_NAME
+            "{JWT_COOKIE_NAME}=invalid; HttpOnly; SameSite=Lax; Secure; Path=/"
         ),
         &Url::parse("http://127.0.0.1").expect("Failed to parse URL"),
     );

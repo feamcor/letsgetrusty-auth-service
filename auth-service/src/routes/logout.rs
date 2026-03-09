@@ -28,7 +28,7 @@ pub async fn logout(
     let _ = state
         .banned_token_store
         .inner()
-        .add_token(&token, None)
+        .add_token(&token)
         .await
         .map_err(|e| ApiError::UnexpectedError(e.into()));
     Ok((jar, StatusCode::OK.into_response()))

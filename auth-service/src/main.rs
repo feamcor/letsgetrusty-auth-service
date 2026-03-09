@@ -1,6 +1,10 @@
 use auth_service::app_state::AppState;
 use auth_service::config::{Config, ConfigType, StoreEngine};
-use auth_service::services::{BannedTokenStoreType, EmailClientType, HashmapTwoFactorAuthCodeStore, HashmapUserStore, HashsetBannedTokenStore, MockEmailClient, PostgresUserStore, RedisBannedTokenStore, TwoFactorAuthCodeStoreType, UserStoreType};
+use auth_service::services::{
+    BannedTokenStoreType, EmailClientType, HashmapTwoFactorAuthCodeStore, HashmapUserStore,
+    HashsetBannedTokenStore, MockEmailClient, PostgresUserStore, RedisBannedTokenStore,
+    RedisTwoFactorAuthCodeStore, TwoFactorAuthCodeStoreType, UserStoreType,
+};
 use auth_service::{configure_cache, configure_database, Application};
 use fmt::format::FmtSpan;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -31,37 +35,52 @@ async fn main() {
         .expect("Failed to modify log level filter");
 
     let user_store_type = match config.store_engine {
-        StoreEngine::Ephemeral => {
-            UserStoreType::new(HashmapUserStore::default())
-        }
+        StoreEngine::Ephemeral => UserStoreType::new(HashmapUserStore::default()),
         StoreEngine::Server => {
             let pool = configure_database(
                 &config.database_url(None),
                 config.db_pool_min_size,
                 config.db_pool_max_size,
             )
-                .await
-                .expect("Failed to configure database");
+            .await
+            .expect("Failed to configure database");
             UserStoreType::new(PostgresUserStore::new(pool))
         }
     };
-    info!("Initialized: User Store: {}: {:?}", config.store_engine, user_store_type);
+    info!(
+        "Initialized: User Store: {}: {:?}",
+        config.store_engine, user_store_type
+    );
 
     let banned_token_store_type = match config.store_engine {
-        StoreEngine::Ephemeral => {
-            BannedTokenStoreType::new(HashsetBannedTokenStore::default())
-        }
+        StoreEngine::Ephemeral => BannedTokenStoreType::new(HashsetBannedTokenStore::default()),
         StoreEngine::Server => {
-            let connection = configure_cache(&config.cache_url()).expect("Failed to configure cache");
+            let connection =
+                configure_cache(&config.cache_url()).expect("Failed to configure cache");
             let connection = RwLock::new(connection);
             BannedTokenStoreType::new(RedisBannedTokenStore::new(connection))
         }
     };
-    info!("Initialized: Banned Token Store: {}: {:?}", config.store_engine, banned_token_store_type);
+    info!(
+        "Initialized: Banned Token Store: {}: {:?}",
+        config.store_engine, banned_token_store_type
+    );
 
-    let two_factor_auth_code_store_type =
-        TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default());
-    info!("Initialized: Two Factor Auth Code Store");
+    let two_factor_auth_code_store_type = match config.store_engine {
+        StoreEngine::Ephemeral => {
+            TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default())
+        }
+        StoreEngine::Server => {
+            let connection =
+                configure_cache(&config.cache_url()).expect("Failed to configure cache");
+            let connection = RwLock::new(connection);
+            TwoFactorAuthCodeStoreType::new(RedisTwoFactorAuthCodeStore::new(connection))
+        }
+    };
+    info!(
+        "Initialized: Two-Factor Auth Code Store: {}: {:?}",
+        config.store_engine, two_factor_auth_code_store_type
+    );
 
     let email_client_type = EmailClientType::new(MockEmailClient);
     info!("Initialized: Email Client");
