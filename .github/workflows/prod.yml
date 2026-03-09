@@ -7,9 +7,26 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  SQLX_OFFLINE: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: postgres:latest
+        env:
+          POSTGRES_DB: ${{ vars.AUTH_SERVICE_DB_DATABASE }}
+          POSTGRES_PASSWORD: ${{ secrets.AUTH_SERVICE_DB_PASSWORD }}
+          POSTGRES_USER: ${{ vars.AUTH_SERVICE_DB_USERNAME }}
+        ports:
+          - ${{ vars.AUTH_SERVICE_DB_PORT }}:5432
+      cache:
+        image: redis:latest
+        ports:
+          - ${{ vars.AUTH_SERVICE_CACHE_PORT }}:6379
 
     steps:
       # Checkout code from the repository
@@ -29,7 +46,10 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: Install Rust
-        run: rustup update stable && rustup default stable
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
 
       - name: Build and test app-service code
         working-directory: ./app-service
@@ -40,7 +60,8 @@ jobs:
       - name: Build and test auth-service code
         working-directory: ./auth-service
         run: |
-          export AUTH_SERVICE_JWT_SECRET=secret
+          export AUTH_SERVICE_JWT_SECRET=${{ secrets.AUTH_SERVICE_JWT_SECRET }}
+          export DATABASE_URL=postgresql://${{ vars.AUTH_SERVICE_DB_USERNAME }}:${{ secrets.AUTH_SERVICE_DB_PASSWORD }}@${{ vars.AUTH_SERVICE_DB_HOSTNAME }}:${{ vars.AUTH_SERVICE_DB_PORT }}/${{ vars.AUTH_SERVICE_DB_DATABASE }}
           cargo build --verbose
           cargo test --verbose
 
@@ -95,6 +116,7 @@ jobs:
             cd ~
             export AUTH_SERVICE_JWT_SECRET=${{ secrets.AUTH_SERVICE_JWT_SECRET }}
             export AUTH_SERVICE_IP=${{ vars.DROPLET_IP }}
+            export AUTH_SERVICE_DB_PASSWORD=${{ secrets.AUTH_SERVICE_DB_PASSWORD }}
             docker compose down
             docker compose pull
             docker compose up -d

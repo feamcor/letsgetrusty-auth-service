@@ -1,17 +1,19 @@
-use crate::helpers::TestApp;
+use crate::helpers::{TestApp, TestAppAsyncContext};
 use auth_service::domain::{Email, LoginAttemptId, TwoFactorAuthCode, SAFE_PASSWORD_LENGTH_RANGE};
 use auth_service::routes::TwoFactorAuthResponse;
-use auth_service::services::TwoFactorAuthCodeStore;
 use fake::faker::internet::en::{DomainSuffix, SafeEmail};
 use fake::Fake;
 use mime::APPLICATION_JSON;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::StatusCode;
 use serde_json::json;
+use test_context::test_context;
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn verify_2fa_successful() {
-    let app = TestApp::new().await;
+async fn verify_2fa_successful(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let email = SafeEmail().fake::<String>();
     let password = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>();
     let signup_request = json!({
@@ -45,9 +47,11 @@ async fn verify_2fa_successful() {
     );
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_400_if_invalid_input() {
-    let app = TestApp::new().await;
+async fn should_return_400_if_invalid_input(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let requests = [
         json!({
             "email": DomainSuffix().fake::<String>().as_str(),
@@ -65,7 +69,7 @@ async fn should_return_400_if_invalid_input() {
             "2FACode": "invalid",
         }),
     ];
-    for request in requests.iter() {
+    for request in &requests {
         let response = app.post_verify_2fa(&request).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         assert_eq!(
@@ -75,9 +79,11 @@ async fn should_return_400_if_invalid_input() {
     }
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_401_if_incorrect_credentials() {
-    let app = TestApp::new().await;
+async fn should_return_401_if_incorrect_credentials(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let email = SafeEmail().fake::<String>();
     let password = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>();
     let signup_request = json!({
@@ -111,9 +117,11 @@ async fn should_return_401_if_incorrect_credentials() {
     );
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_401_if_old_attempt_id() {
-    let app = TestApp::new().await;
+async fn should_return_401_if_old_attempt_id(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let email = SafeEmail().fake::<String>();
     let password = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>();
     let signup_request = json!({
@@ -138,6 +146,7 @@ async fn should_return_401_if_old_attempt_id() {
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
     let store = &app.two_factor_auth_code_store;
     let (_, auth_code) = store
+        .inner()
         .get_code(&Email::parse(&email).unwrap())
         .await
         .unwrap();
@@ -154,9 +163,11 @@ async fn should_return_401_if_old_attempt_id() {
     );
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_401_if_old_auth_code() {
-    let app = TestApp::new().await;
+async fn should_return_401_if_old_auth_code(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let email = SafeEmail().fake::<String>();
     let password = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>();
     let signup_request = json!({
@@ -174,6 +185,7 @@ async fn should_return_401_if_old_auth_code() {
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
     let store = &app.two_factor_auth_code_store;
     let (_, auth_code) = store
+        .inner()
         .get_code(&Email::parse(&email).unwrap())
         .await
         .unwrap();
@@ -197,9 +209,11 @@ async fn should_return_401_if_old_auth_code() {
     );
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_401_if_same_code_twice() {
-    let app = TestApp::new().await;
+async fn should_return_401_if_same_code_twice(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let email = SafeEmail().fake::<String>();
     let password = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>();
     let signup_request = json!({
@@ -217,6 +231,7 @@ async fn should_return_401_if_same_code_twice() {
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
     let store = &app.two_factor_auth_code_store;
     let (attempt_id, auth_code) = store
+        .inner()
         .get_code(&Email::parse(&email).unwrap())
         .await
         .unwrap();
@@ -235,9 +250,11 @@ async fn should_return_401_if_same_code_twice() {
     );
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_422_if_malformed_input() {
-    let app = TestApp::new().await;
+async fn should_return_422_if_malformed_input(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let requests = [
         json!(null),
         json!(true),
@@ -255,7 +272,7 @@ async fn should_return_422_if_malformed_input() {
         json!({"loginAttemptId": "string", "2FACode": "string"}),
         json!({"2FACode": "string", "email": "string"}),
     ];
-    for request in requests.iter() {
+    for request in &requests {
         let response = app.post_verify_2fa(&request).await;
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }

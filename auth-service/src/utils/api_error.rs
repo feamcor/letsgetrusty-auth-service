@@ -43,11 +43,9 @@ impl IntoResponse for ApiError {
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::from(error.to_string())),
             ),
-            ApiError::UserStoreError(error @ UserStoreError::UserNotFound(_)) => (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse::from(error.to_string())),
-            ),
-            ApiError::UserStoreError(error @ UserStoreError::IncorrectCredentials(_)) => (
+            ApiError::UserStoreError(
+                error @ (UserStoreError::UserNotFound(_) | UserStoreError::IncorrectCredentials(_)),
+            ) => (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse::from(error.to_string())),
             ),
@@ -83,20 +81,14 @@ impl IntoResponse for ApiError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::from(error.to_string())),
             ),
-            error @ ApiError::TokenInvalid => (
+            error @ (ApiError::TokenInvalid
+            | ApiError::TokenBanned
+            | ApiError::IncorrectCredentials) => (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse::from(error.to_string())),
             ),
             error @ ApiError::TokenMissing => (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::from(error.to_string())),
-            ),
-            error @ ApiError::TokenBanned => (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse::from(error.to_string())),
-            ),
-            error @ ApiError::IncorrectCredentials => (
-                StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse::from(error.to_string())),
             ),
             ApiError::UnexpectedError(error) => (

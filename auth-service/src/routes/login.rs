@@ -1,12 +1,11 @@
 use crate::app_state::AppState;
 use crate::domain::{LoginAttemptId, TwoFactorAuthCode, User};
-use crate::services::{EmailClient, TwoFactorAuthCodeStore, UserStore};
 use crate::utils::api_error::ApiError;
 use crate::utils::auth::generate_auth_cookie;
+use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::Json;
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -45,8 +44,8 @@ pub async fn login(
     jar: CookieJar,
     Json(request): Json<LoginRequest>,
 ) -> Result<(CookieJar, impl IntoResponse), ApiError> {
-    let user_store = &state.user_store;
-    User::try_new(&request.email, &request.password, false)?;
+    User::try_new(&request.email, &request.password, false).await?;
+    let user_store = state.user_store.inner();
     user_store
         .validate_user(&request.email, &request.password)
         .await?;
@@ -56,13 +55,18 @@ pub async fn login(
         let response = TwoFactorAuthResponse::default();
         let login_attempt_id = response.login_attempt_id.clone();
         let auth_code = TwoFactorAuthCode::default();
-        state.email_client.send_email(
-            &user.email,
-            "Auth Service Login Attempt",
-            &format!("2FA Code: {}", auth_code)
-        ).await?;
-        let auth_code_store = &state.two_factor_auth_code_store;
-        auth_code_store
+        state
+            .email_client
+            .inner()
+            .send_email(
+                &user.email,
+                "Auth Service Login Attempt",
+                &format!("2FA Code: {auth_code}"),
+            )
+            .await?;
+        state
+            .two_factor_auth_code_store
+            .inner()
             .add_code(user.email, login_attempt_id, auth_code)
             .await?;
         return Ok((
@@ -71,7 +75,12 @@ pub async fn login(
         ));
     }
 
-    let cookie = generate_auth_cookie(&user.email)?;
+    let config = state.config.inner();
+    let cookie = generate_auth_cookie(
+        &user.email,
+        config.jwt_secret.as_ref().unwrap(),
+        i64::from(config.jwt_ttl_seconds),
+    )?;
     let jar = jar.add(cookie);
     Ok((jar, StatusCode::OK.into_response()))
 }

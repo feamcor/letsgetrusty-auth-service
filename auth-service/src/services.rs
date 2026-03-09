@@ -1,23 +1,16 @@
-mod banned_token_store;
-mod hashset_banned_token_store;
+pub(crate) mod stores;
+pub use stores::*;
 
-mod hashmap_two_factor_auth_code_store;
-mod two_factor_auth_code_store;
+mod store_banned_tokens;
+pub use store_banned_tokens::*;
 
-mod hashmap_user_store;
-mod user_store;
+mod store_2fa_codes;
+pub use store_2fa_codes::*;
 
-mod email_client;
-mod mock_email_client;
+mod store_users;
+pub use store_users::*;
 
-pub use banned_token_store::*;
-pub use hashset_banned_token_store::*;
-
-pub use hashmap_two_factor_auth_code_store::*;
-pub use two_factor_auth_code_store::*;
-
-pub use hashmap_user_store::*;
-pub use user_store::*;
-
-pub use email_client::*;
-pub use mock_email_client::*;
+pub(crate) mod clients;
+pub use clients::*;
+mod client_email;
+pub use client_email::*;

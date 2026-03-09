@@ -1,18 +1,62 @@
 services:
   app-service:
-    image: feamcor/app-service # specify name of image on Docker Hub
-    restart: "always" # automatically restart container when server crashes
-    environment: # set up environment variables
-      AUTH_SERVICE_IP: ${AUTH_SERVICE_IP:-localhost} # Use localhost as the default value
+    image: feamcor/app-service
+    restart: always
+    environment:
+      AUTH_SERVICE_IP: "${AUTH_SERVICE_IP:-auth-service}"
     ports:
-      - "8000:8000" # expose port 8000 so that applications outside the container can connect to it 
-    depends_on: # only run app-service after auth-service has started
+      - "${APP_SERVICE_PORT:-8000}:8000"
+    depends_on:
       auth-service:
         condition: service_started
   auth-service:
     image: feamcor/auth-service
-    restart: "always" # automatically restart container when server crashes
+    restart: always
     environment:
-      AUTH_SERVICE_JWT_SECRET: ${AUTH_SERVICE_JWT_SECRET}
+      APP_SERVICE_PORT: ${APP_SERVICE_PORT:-8000}
+      AUTH_SERVICE_CACHE_HOSTNAME: "cache"
+      AUTH_SERVICE_CACHE_PORT: ${AUTH_SERVICE_CACHE_PORT:-6379}
+      AUTH_SERVICE_DB_DATABASE: "${AUTH_SERVICE_DB_DATABASE:-letsgetrusty}"
+      AUTH_SERVICE_DB_HOSTNAME: "db"
+      AUTH_SERVICE_DB_PASSWORD: "${AUTH_SERVICE_DB_PASSWORD}"
+      AUTH_SERVICE_DB_PORT: ${AUTH_SERVICE_DB_PORT:-5432}
+      AUTH_SERVICE_DB_USERNAME: "${AUTH_SERVICE_DB_USERNAME:-administrator}"
+      AUTH_SERVICE_JWT_SECRET: "${AUTH_SERVICE_JWT_SECRET}"
+      AUTH_SERVICE_LOG: "${AUTH_SERVICE_LOG:-info}"
+      AUTH_SERVICE_PORT: ${AUTH_SERVICE_PORT:-3000}
     ports:
-      - "3000:3000" # expose port 3000 so that applications outside the container can connect to it 
+      - "${AUTH_SERVICE_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+  db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_DB: "${AUTH_SERVICE_DB_DATABASE:-letsgetrusty}"
+      POSTGRES_PASSWORD: "${AUTH_SERVICE_DB_PASSWORD}"
+      POSTGRES_USER: "${AUTH_SERVICE_DB_USERNAME:-administrator}"
+    ports:
+      - "${AUTH_SERVICE_DB_PORT:-5432}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${AUTH_SERVICE_DB_USERNAME:-administrator} -d ${AUTH_SERVICE_DB_DATABASE:-letsgetrusty}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  cache:
+    image: redis:latest
+    restart: always
+    ports:
+      - "${AUTH_SERVICE_CACHE_PORT:-6379}:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+volumes:
+  db_data:
+    driver: local

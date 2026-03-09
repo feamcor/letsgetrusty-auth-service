@@ -1,16 +1,19 @@
-use crate::helpers::TestApp;
+use crate::helpers::{TestApp, TestAppAsyncContext};
 use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
-use auth_service::utils::constants::JWT_COOKIE_NAME;
+use auth_service::utils::auth::JWT_COOKIE_NAME;
 use fake::faker::internet::en::SafeEmail;
 use fake::Fake;
 use mime::APPLICATION_JSON;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::StatusCode;
 use serde_json::json;
+use test_context::test_context;
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_200_if_valid_token() {
-    let app = TestApp::new().await;
+async fn should_return_200_if_valid_token(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let login_request = json!({
         "email": SafeEmail().fake::<String>().as_str(),
         "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
@@ -33,9 +36,11 @@ async fn should_return_200_if_valid_token() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_401_if_invalid_token() {
-    let app = TestApp::new().await;
+async fn should_return_401_if_invalid_token(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let request = json!({"token":"string"});
     let response = app.post_verify_token(&request).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
@@ -45,9 +50,11 @@ async fn should_return_401_if_invalid_token() {
     );
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_401_if_banned_token() {
-    let app = TestApp::new().await;
+async fn should_return_401_if_banned_token(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let login_request = json!({
         "email": SafeEmail().fake::<String>().as_str(),
         "password": SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().as_str()
@@ -72,9 +79,11 @@ async fn should_return_401_if_banned_token() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
+#[test_context(TestAppAsyncContext)]
 #[tokio::test]
-async fn should_return_422_if_malformed_input() {
-    let app = TestApp::new().await;
+async fn should_return_422_if_malformed_input(ctx: &mut TestAppAsyncContext) {
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
     let requests = [
         json!(null),
         json!(true),
@@ -90,7 +99,7 @@ async fn should_return_422_if_malformed_input() {
         json!({"token": {}}),
         json!({"token": "string", "key": "value"}),
     ];
-    for request in requests.iter() {
+    for request in &requests {
         let response = app.post_verify_token(&request).await;
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }

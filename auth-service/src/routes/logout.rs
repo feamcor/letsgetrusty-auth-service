@@ -1,8 +1,7 @@
 use crate::app_state::AppState;
-use crate::services::BannedTokenStore;
 use crate::utils::api_error::ApiError;
+use crate::utils::auth::JWT_COOKIE_NAME;
 use crate::utils::auth::{create_auth_cookie, validate_token};
-use crate::utils::constants::JWT_COOKIE_NAME;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -21,14 +20,16 @@ pub async fn logout(
         return Err(ApiError::TokenMissing);
     };
     let token = cookie.value().to_owned();
-    validate_token(&token)
+    let config = state.config.inner();
+    validate_token(&token, config.jwt_secret.as_ref().unwrap())
         .await
         .map_err(|_| ApiError::TokenInvalid)?;
-    let jar = jar.remove(create_auth_cookie("".to_string()));
-    let store = &state.banned_token_store;
-    store
+    let jar = jar.remove(create_auth_cookie(String::new()));
+    let _ = state
+        .banned_token_store
+        .inner()
         .add_token(&token)
         .await
-        .map_err(|e| ApiError::UnexpectedError(e.into()))?;
+        .map_err(|e| ApiError::UnexpectedError(e.into()));
     Ok((jar, StatusCode::OK.into_response()))
 }

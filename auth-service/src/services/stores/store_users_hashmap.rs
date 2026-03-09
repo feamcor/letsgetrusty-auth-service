@@ -30,15 +30,6 @@ impl UserStore for HashmapUserStore {
             .cloned()
             .ok_or(UserStoreError::UserNotFound(email.to_string()))
     }
-
-    async fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
-        let user = self.get_user(email).await?;
-        if user.password.expose() == password {
-            Ok(())
-        } else {
-            Err(UserStoreError::IncorrectCredentials(email.to_string()))
-        }
-    }
 }
 
 #[cfg(test)]
@@ -47,7 +38,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_user() {
-        let user_1 = User::try_new("alice@example.com", "StrongPassword123!", false).unwrap();
+        let user_1 = User::try_new("alice@example.com", "StrongPassword123!", false)
+            .await
+            .unwrap();
         let user_2 = user_1.clone();
         let store = HashmapUserStore::default();
         assert!(store.add_user(user_1).await.is_ok());
@@ -56,7 +49,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_user() {
-        let user = User::try_new("alice@example.com", "StrongPassword123!", false).unwrap();
+        let user = User::try_new("alice@example.com", "StrongPassword123!", false)
+            .await
+            .unwrap();
         let store = HashmapUserStore::default();
         store.add_user(user).await.unwrap();
         assert!(store.get_user("alice@example.com").await.is_ok());
@@ -65,7 +60,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_user() {
-        let user = User::try_new("alice@example.com", "StrongPassword123!", false).unwrap();
+        let user = User::try_new("alice@example.com", "StrongPassword123!", false)
+            .await
+            .unwrap();
         let store = HashmapUserStore::default();
         store.add_user(user).await.unwrap();
         assert!(
