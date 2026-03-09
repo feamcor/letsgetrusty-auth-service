@@ -3,7 +3,7 @@ use crate::services::{BannedTokenStore, BannedTokenStoreError};
 use redis::{Commands, ExistenceCheck, SetExpiry, SetOptions};
 use std::fmt::Debug;
 use tokio::sync::RwLock;
-use tracing::instrument;
+
 
 #[allow(unused_imports)]
 use tracing::Level;
@@ -28,7 +28,7 @@ impl RedisBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for RedisBannedTokenStore {
-    #[instrument(level = Level::TRACE)]
+    #[tracing::instrument(name = "AddBannedTokenIntoCache", level = Level::TRACE, skip_all)]
     async fn add_token(&self, token: &str) -> Result<(), BannedTokenStoreError> {
         let ttl = u64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT);
         let key = token_key(token);
@@ -44,7 +44,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
         }
     }
 
-    #[instrument(level = Level::TRACE)]
+    #[tracing::instrument(name = "CheckBannedTokenInCache", level = Level::TRACE, skip_all)]
     async fn is_token_banned(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
         let key = token_key(token);
         let mut connection = self.connection.write().await;
@@ -53,7 +53,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
             .map_err(|error| BannedTokenStoreError::UnexpectedError(error.into()))
     }
 
-    #[instrument(level = Level::TRACE)]
+    #[tracing::instrument(name = "RemoveBannedTokenFromCache", level = Level::TRACE, skip_all)]
     async fn remove_token(&self, token: &str) -> Result<(), BannedTokenStoreError> {
         let key = token_key(token);
         let mut connection = self.connection.write().await;

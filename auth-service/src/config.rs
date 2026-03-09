@@ -16,7 +16,7 @@ use std::env;
 use std::fmt;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::sync::Arc;
-use tracing::{error, info, instrument, warn};
+use tracing::{error, info, warn};
 
 #[allow(unused_imports)]
 use tracing::Level;
@@ -222,7 +222,6 @@ impl Default for Config {
 }
 
 impl Config {
-    #[instrument(level = Level::TRACE)]
     pub fn init_from_env() -> Self {
         let dotenv = dotenv_override().ok();
         if let Some(dotenv) = dotenv {
@@ -451,7 +450,6 @@ impl Config {
         }
     }
 
-    #[instrument(level = Level::TRACE)]
     pub fn init_from_env_and_cli() -> Self {
         let dotenv = dotenv_override().ok();
         if let Some(dotenv) = dotenv {
@@ -509,7 +507,6 @@ impl ConfigType {
     }
 }
 
-#[instrument(level = Level::TRACE)]
 pub fn secret_from_environment(environment_variable: &str) -> Option<SecretString> {
     let secret = match env::var(environment_variable) {
         Ok(string) => string,

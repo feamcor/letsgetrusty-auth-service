@@ -8,8 +8,7 @@ use tokio_util::sync::CancellationToken;
 use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
-use tracing::{info, instrument};
-use tracing::{warn, Level};
+use tracing::{info, warn, Level};
 
 pub mod app_state;
 pub mod config;
@@ -25,7 +24,7 @@ pub struct Application {
 }
 
 impl Application {
-    #[instrument(level = Level::TRACE, skip(state))]
+    #[tracing::instrument(name = "ApplicationBuild", level = Level::TRACE, skip_all)]
     pub async fn build(state: AppState, address: SocketAddr) -> Result<Self, Box<dyn Error>> {
         let config = &state.config.inner();
         // Allow the app service to call the auth service
@@ -51,7 +50,12 @@ impl Application {
             .nest("/api", apis)
             .with_state(state)
             .layer(cors)
-            .layer(TraceLayer::new_for_http());
+            .layer(
+                TraceLayer::new_for_http()
+                    .make_span_with(utils::tracing::make_span_with_request_id)
+                    .on_request(utils::tracing::on_request)
+                    .on_response(utils::tracing::on_response),
+            );
         info!("Initialized: Router");
         let listener = tokio::net::TcpListener::bind(address).await?;
         let address = listener.local_addr()?;
@@ -63,7 +67,7 @@ impl Application {
         Ok(application)
     }
 
-    #[instrument(level = Level::TRACE, skip(self))]
+    #[tracing::instrument(name = "ApplicationRun", level = Level::TRACE, skip_all)]
     pub async fn run(self) -> Result<(), std::io::Error> {
         info!("Server listening on {}", self.address);
         let shutdown_token = CancellationToken::new();
@@ -73,7 +77,7 @@ impl Application {
     }
 }
 
-#[instrument(level = Level::TRACE, skip(shutdown_token))]
+#[tracing::instrument(name = "ApplicationShutdown", level = Level::TRACE, skip_all)]
 async fn shutdown_signal(shutdown_token: CancellationToken) {
     let ctrl_c = async {
         tokio::signal::ctrl_c()
@@ -101,7 +105,7 @@ async fn shutdown_signal(shutdown_token: CancellationToken) {
     info!("Shutdown signal received!");
 }
 
-#[instrument(level = Level::TRACE)]
+#[tracing::instrument(name = "GetDatabasePool", level = Level::TRACE, skip_all)]
 pub async fn database_pool(
     db_url: &str,
     db_pool_min_size: u32,
@@ -114,7 +118,7 @@ pub async fn database_pool(
         .await
 }
 
-#[instrument(level = Level::TRACE)]
+#[tracing::instrument(name = "ConfigureDatabase", level = Level::TRACE, skip_all)]
 pub async fn configure_database(
     db_url: &str,
     db_pool_min_size: u32,
@@ -125,12 +129,12 @@ pub async fn configure_database(
     Ok(pool)
 }
 
-#[instrument(level = Level::TRACE)]
+#[tracing::instrument(name = "GetCacheClient", level = Level::TRACE, skip_all)]
 pub fn cache_client(cache_url: &str) -> redis::RedisResult<redis::Client> {
     redis::Client::open(cache_url)
 }
 
-#[instrument(level = Level::TRACE)]
+#[tracing::instrument(name = "ConfigureCache", level = Level::TRACE, skip_all)]
 pub fn configure_cache(cache_url: &str) -> redis::RedisResult<redis::Connection> {
     let client = cache_client(cache_url)?;
     client.get_connection()

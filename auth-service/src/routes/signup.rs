@@ -1,15 +1,12 @@
 use crate::app_state::AppState;
 use crate::domain::User;
 use crate::utils::api_error::ApiError;
-use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
+use axum::Json;
 use serde::{Deserialize, Serialize};
-use tracing::instrument;
 
-#[allow(unused_imports)]
-use tracing::Level;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -26,7 +23,7 @@ pub struct SignupResponse {
     pub message: String,
 }
 
-#[instrument(level = Level::TRACE)]
+#[tracing::instrument(name = "ApiHandlerSignup", skip_all, err(Debug))]
 pub async fn signup(
     State(state): State<AppState>,
     Json(request): Json<SignupRequest>,

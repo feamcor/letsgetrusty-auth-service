@@ -5,7 +5,7 @@ use redis::{Commands, SetExpiry, SetOptions};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tokio::sync::RwLock;
-use tracing::instrument;
+
 
 #[allow(unused_imports)]
 use tracing::Level;
@@ -30,7 +30,7 @@ impl RedisTwoFactorAuthCodeStore {
 
 #[async_trait::async_trait]
 impl TwoFactorAuthCodeStore for RedisTwoFactorAuthCodeStore {
-    #[instrument(level = Level::TRACE)]
+    #[tracing::instrument(name = "Add2FACodeToCache", level = Level::TRACE, skip_all)]
     async fn add_code(
         &self,
         email: Email,

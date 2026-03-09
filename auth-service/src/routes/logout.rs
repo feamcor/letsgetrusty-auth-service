@@ -6,12 +6,9 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum_extra::extract::CookieJar;
-use tracing::instrument;
 
-#[allow(unused_imports)]
-use tracing::Level;
 
-#[instrument(level = Level::TRACE)]
+#[tracing::instrument(name = "ApiHandlerLogout", skip_all, err(Debug))]
 pub async fn logout(
     State(state): State<AppState>,
     jar: CookieJar,

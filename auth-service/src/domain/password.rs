@@ -1,10 +1,10 @@
-use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
+use argon2::password_hash::SaltString;
 use argon2::{Algorithm, Argon2, Params, PasswordHash, PasswordHasher, PasswordVerifier, Version};
 use secrecy::{ExposeSecret, SecretString};
 use tokio::task::spawn_blocking;
-use tracing::{error, instrument};
-use zxcvbn::{Score, zxcvbn};
+use tracing::error;
+use zxcvbn::{zxcvbn, Score};
 
 #[allow(unused_imports)]
 use tracing::Level;
@@ -40,7 +40,7 @@ pub enum PasswordError {
 pub struct HashedPassword(SecretString);
 
 impl HashedPassword {
-    #[instrument(level = Level::TRACE)]
+    #[tracing::instrument(name = "HashedPasswordParsing", level = Level::TRACE, skip_all)]
     pub async fn parse(raw: &str, user: &str) -> Result<Self, PasswordError> {
         if raw.len() < MIN_PASSWORD_LENGTH {
             return Err(PasswordError::TooShort);
@@ -58,7 +58,6 @@ impl HashedPassword {
         Ok(Self(secret))
     }
 
-    #[instrument(level = Level::TRACE)]
     pub fn parse_password_hash(hash: &str) -> Result<Self, PasswordError> {
         match PasswordHash::new(hash) {
             Ok(password_hash) => {
@@ -70,7 +69,7 @@ impl HashedPassword {
         }
     }
 
-    #[instrument(level = Level::TRACE)]
+    #[tracing::instrument(name = "RawPasswordVerification", level = Level::TRACE, skip_all)]
     pub async fn verify_raw_password(&self, candidate: &str) -> Result<(), PasswordError> {
         let candidate = candidate.to_owned();
         let secret = self.0.expose_secret().to_owned();
@@ -102,7 +101,7 @@ impl AsRef<str> for HashedPassword {
     }
 }
 
-#[instrument(level = Level::TRACE)]
+#[tracing::instrument(name = "PasswordHashComputation", level = Level::TRACE, skip_all)]
 async fn compute_password_hash(password: &str) -> Result<String, PasswordError> {
     let password = password.to_owned();
     let task = spawn_blocking(move || -> Result<String, PasswordError> {
@@ -124,8 +123,8 @@ async fn compute_password_hash(password: &str) -> Result<String, PasswordError> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fake::Fake;
     use fake::faker::internet::en::SafeEmail;
+    use fake::Fake;
     use quickcheck::Gen;
     use quickcheck_macros::quickcheck;
 

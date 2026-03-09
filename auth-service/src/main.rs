@@ -6,33 +6,17 @@ use auth_service::services::{
     RedisTwoFactorAuthCodeStore, TwoFactorAuthCodeStoreType, UserStoreType,
 };
 use auth_service::{configure_cache, configure_database, Application};
-use fmt::format::FmtSpan;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tokio::sync::RwLock;
 use tracing::info;
-use tracing_subscriber::filter::LevelFilter;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{fmt, reload};
+use auth_service::utils::tracing::init_tracing;
 
 #[tokio::main]
 async fn main() {
-    let (filter, reload_handle) = reload::Layer::new(LevelFilter::INFO);
-
-    tracing_subscriber::registry()
-        .with(filter)
-        .with(fmt::layer().with_span_events(FmtSpan::NEW | FmtSpan::CLOSE))
-        .init();
-    info!("Initialized: Tracing");
-
     let config = Config::init_from_env_and_cli();
+    init_tracing(&config.log);
     let config_type = ConfigType::new(config);
     let config = config_type.inner();
-
-    let log_level = config.log.clone();
-    reload_handle
-        .modify(|level_filter| *level_filter = LevelFilter::from_level(log_level.into()))
-        .expect("Failed to modify log level filter");
 
     let user_store_type = match config.store_engine {
         StoreEngine::Ephemeral => UserStoreType::new(HashmapUserStore::default()),

@@ -9,10 +9,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
-use tracing::instrument;
 
-#[allow(unused_imports)]
-use tracing::Level;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -23,7 +20,7 @@ pub struct Verify2FARequest {
     pub two_factor_auth_code: String,
 }
 
-#[instrument(level = Level::TRACE, skip(state))]
+#[tracing::instrument(name = "ApiHandlerVerify2FA", skip_all, err(Debug))]
 pub async fn verify_2fa(
     State(state): State<AppState>,
     jar: CookieJar,
