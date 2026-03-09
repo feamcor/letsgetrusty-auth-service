@@ -3,7 +3,7 @@ use auth_service::config::{Config, ConfigType, StoreEngine};
 use auth_service::services::{
     BannedTokenStoreType, EmailClientType, HashmapTwoFactorAuthCodeStore, HashmapUserStore,
     HashsetBannedTokenStore, MockEmailClient, PostgresUserStore, RedisBannedTokenStore,
-    TwoFactorAuthCodeStoreType, UserStoreType,
+    RedisTwoFactorAuthCodeStore, TwoFactorAuthCodeStoreType, UserStoreType,
 };
 use auth_service::{configure_cache, Application};
 use axum::http::Uri;
@@ -56,8 +56,15 @@ impl TestApp {
                 BannedTokenStoreType::new(RedisBannedTokenStore::new(connection))
             }
         };
-        let two_factor_auth_code_store_type =
-            TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default());
+        let two_factor_auth_code_store_type = match config.store_engine {
+            StoreEngine::Ephemeral => TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default()),
+            StoreEngine::Server => {
+                let connection =
+                    configure_cache(&config.cache_url()).expect("Failed to configure cache");
+                let connection = RwLock::new(connection);
+                TwoFactorAuthCodeStoreType::new(RedisTwoFactorAuthCodeStore::new(connection))
+            }
+        };
         let email_client_type = EmailClientType::new(MockEmailClient);
         let app_state = AppState::new(
             user_store_type,
