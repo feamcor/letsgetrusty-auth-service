@@ -60,6 +60,7 @@ jobs:
       - name: Build and test auth-service code
         working-directory: ./auth-service
         run: |
+          export AUTH_SERVICE_DB_PASSWORD=${{ secrets.AUTH_SERVICE_DB_PASSWORD }}
           export AUTH_SERVICE_JWT_SECRET=${{ secrets.AUTH_SERVICE_JWT_SECRET }}
           export DATABASE_URL=postgresql://${{ vars.AUTH_SERVICE_DB_USERNAME }}:${{ secrets.AUTH_SERVICE_DB_PASSWORD }}@${{ vars.AUTH_SERVICE_DB_HOSTNAME }}:${{ vars.AUTH_SERVICE_DB_PORT }}/${{ vars.AUTH_SERVICE_DB_DATABASE }}
           cargo build --verbose
@@ -114,9 +115,9 @@ jobs:
           password: ${{ secrets.DROPLET_PASSWORD }}
           script: |
             cd ~
-            export AUTH_SERVICE_JWT_SECRET=${{ secrets.AUTH_SERVICE_JWT_SECRET }}
             export AUTH_SERVICE_IP=${{ vars.DROPLET_IP }}
             export AUTH_SERVICE_DB_PASSWORD=${{ secrets.AUTH_SERVICE_DB_PASSWORD }}
+            export AUTH_SERVICE_JWT_SECRET=${{ secrets.AUTH_SERVICE_JWT_SECRET }}
             docker compose down
             docker compose pull
             docker compose up -d
