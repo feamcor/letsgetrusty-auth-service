@@ -43,7 +43,7 @@ services:
     volumes:
       - db_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AUTH_SERVICE_DB_USERNAME:-administrator} -d ${AUTH_SERVICE_DB_DATABASE:-letsgetrusty}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${AUTH_SERVICE_DB_USERNAME:-administrator} -d ${AUTH_SERVICE_DB_DATABASE:-letsgetrusty}" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -52,6 +52,11 @@ services:
     restart: always
     ports:
       - "${AUTH_SERVICE_CACHE_PORT:-6379}:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 volumes:
   db_data:
     driver: local
