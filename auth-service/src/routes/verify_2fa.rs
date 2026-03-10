@@ -4,6 +4,7 @@ use crate::domain::LoginAttemptId;
 use crate::domain::TwoFactorAuthCode;
 use crate::services::TwoFactorAuthCodeStoreError;
 use crate::utils::api_error::ApiError;
+use crate::utils::api_error::ApiResult;
 use crate::utils::auth::generate_auth_cookie;
 use axum::Json;
 use axum::extract::State;
@@ -22,12 +23,12 @@ pub struct Verify2FARequest {
     pub two_factor_auth_code: String,
 }
 
-#[tracing::instrument(name = "ApiHandlerVerify2FA", skip_all, err(Debug))]
+#[tracing::instrument(name = "ApiHandlerVerify2FA", skip_all)]
 pub async fn verify_2fa(
     State(state): State<AppState>,
     jar: CookieJar,
     Json(request): Json<Verify2FARequest>,
-) -> Result<(CookieJar, impl IntoResponse), ApiError> {
+) -> ApiResult<(CookieJar, impl IntoResponse)> {
     let email = Email::parse(&request.email)?;
     let attempt_id = LoginAttemptId::parse(request.login_attempt_id)?;
     let auth_code = TwoFactorAuthCode::parse(request.two_factor_auth_code)?;

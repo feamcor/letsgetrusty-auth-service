@@ -65,19 +65,15 @@ impl TestApp {
         let banned_token_store_type = match config.store_engine {
             StoreEngine::Ephemeral => BannedTokenStoreType::new(HashsetBannedTokenStore::default()),
             StoreEngine::Server => {
-                let connection =
-                    configure_cache(&config.cache_url()).expect("Failed to configure cache");
+                let connection = configure_cache(&config.cache_url()).expect("Failed to configure cache");
                 let connection = RwLock::new(connection);
                 BannedTokenStoreType::new(RedisBannedTokenStore::new(connection))
             }
         };
         let two_factor_auth_code_store_type = match config.store_engine {
-            StoreEngine::Ephemeral => {
-                TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default())
-            }
+            StoreEngine::Ephemeral => TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default()),
             StoreEngine::Server => {
-                let connection =
-                    configure_cache(&config.cache_url()).expect("Failed to configure cache");
+                let connection = configure_cache(&config.cache_url()).expect("Failed to configure cache");
                 let connection = RwLock::new(connection);
                 TwoFactorAuthCodeStoreType::new(RedisTwoFactorAuthCodeStore::new(connection))
             }
@@ -199,11 +195,7 @@ impl AsyncTestContext for TestAppAsyncContext {
     }
 }
 
-async fn configure_database_for_testing(
-    real_db_url: &str,
-    test_db_name: &str,
-    test_db_url: &str,
-) -> PgPool {
+async fn configure_database_for_testing(real_db_url: &str, test_db_name: &str, test_db_url: &str) -> PgPool {
     let pool = PgPoolOptions::new()
         .connect(real_db_url)
         .await
@@ -223,8 +215,7 @@ async fn configure_database_for_testing(
 }
 
 async fn delete_database(real_db_url: &str, test_db_name: &str) {
-    let options = PgConnectOptions::from_str(real_db_url)
-        .expect("Failed to parse the database connection string");
+    let options = PgConnectOptions::from_str(real_db_url).expect("Failed to parse the database connection string");
     let mut connection = PgConnection::connect_with(&options)
         .await
         .expect("Failed to connect to the app database");

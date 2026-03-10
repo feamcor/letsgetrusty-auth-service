@@ -1,6 +1,7 @@
 use crate::domain::User;
 use crate::services::UserStore;
 use crate::services::UserStoreError;
+use crate::services::UserStoreResult;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
@@ -12,7 +13,7 @@ pub struct HashmapUserStore {
 #[async_trait::async_trait]
 impl UserStore for HashmapUserStore {
     #[allow(clippy::map_entry)]
-    async fn add_user(&self, user: User) -> Result<(), UserStoreError> {
+    async fn add_user(&self, user: User) -> UserStoreResult<()> {
         let email = user.email.to_string();
         let mut users = self.users.write().await;
         if users.contains_key(&email) {
@@ -23,7 +24,7 @@ impl UserStore for HashmapUserStore {
         }
     }
 
-    async fn get_user(&self, email: &str) -> Result<User, UserStoreError> {
+    async fn get_user(&self, email: &str) -> UserStoreResult<User> {
         self.users
             .read()
             .await

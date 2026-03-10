@@ -9,12 +9,7 @@ pub enum EmailClientError {
 
 #[async_trait::async_trait]
 pub trait EmailClient: Send + Sync {
-    async fn send_email(
-        &self,
-        recipient: &Email,
-        subject: &str,
-        content: &str,
-    ) -> Result<(), EmailClientError>;
+    async fn send_email(&self, recipient: &Email, subject: &str, content: &str) -> Result<(), EmailClientError>;
 }
 
 #[derive(Clone)]
@@ -24,9 +19,7 @@ pub struct EmailClientType {
 
 impl EmailClientType {
     pub fn new(inner: impl EmailClient + 'static) -> Self {
-        Self {
-            inner: Arc::new(inner),
-        }
+        Self { inner: Arc::new(inner) }
     }
 
     #[must_use]

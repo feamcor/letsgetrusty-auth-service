@@ -21,14 +21,13 @@ use std::net::IpAddr;
 use std::net::Ipv4Addr;
 use std::net::SocketAddr;
 use tokio::sync::RwLock;
-use tracing::info;
 
 #[tokio::main]
 async fn main() {
     color_eyre::install().expect("Failed to install color_eyre");
 
     let config = Config::init_from_env_and_cli();
-    init_tracing(&config.log);
+    init_tracing(&config.log).expect("Failed to initialize tracing");
     let config_type = ConfigType::new(config);
     let config = config_type.inner();
 
@@ -45,43 +44,42 @@ async fn main() {
             UserStoreType::new(PostgresUserStore::new(pool))
         }
     };
-    info!(
+    tracing::info!(
         "Initialized: User Store: {}: {:?}",
-        config.store_engine, user_store_type
+        config.store_engine,
+        user_store_type
     );
 
     let banned_token_store_type = match config.store_engine {
         StoreEngine::Ephemeral => BannedTokenStoreType::new(HashsetBannedTokenStore::default()),
         StoreEngine::Server => {
-            let connection =
-                configure_cache(&config.cache_url()).expect("Failed to configure cache");
+            let connection = configure_cache(&config.cache_url()).expect("Failed to configure cache");
             let connection = RwLock::new(connection);
             BannedTokenStoreType::new(RedisBannedTokenStore::new(connection))
         }
     };
-    info!(
+    tracing::info!(
         "Initialized: Banned Token Store: {}: {:?}",
-        config.store_engine, banned_token_store_type
+        config.store_engine,
+        banned_token_store_type
     );
 
     let two_factor_auth_code_store_type = match config.store_engine {
-        StoreEngine::Ephemeral => {
-            TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default())
-        }
+        StoreEngine::Ephemeral => TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default()),
         StoreEngine::Server => {
-            let connection =
-                configure_cache(&config.cache_url()).expect("Failed to configure cache");
+            let connection = configure_cache(&config.cache_url()).expect("Failed to configure cache");
             let connection = RwLock::new(connection);
             TwoFactorAuthCodeStoreType::new(RedisTwoFactorAuthCodeStore::new(connection))
         }
     };
-    info!(
+    tracing::info!(
         "Initialized: Two-Factor Auth Code Store: {}: {:?}",
-        config.store_engine, two_factor_auth_code_store_type
+        config.store_engine,
+        two_factor_auth_code_store_type
     );
 
     let email_client_type = EmailClientType::new(MockEmailClient);
-    info!("Initialized: Email Client");
+    tracing::info!("Initialized: Email Client");
 
     let ip_address = if let Some(v6) = config.ipv6 {
         IpAddr::V6(v6)
@@ -91,7 +89,7 @@ async fn main() {
         IpAddr::V4(Ipv4Addr::UNSPECIFIED)
     };
     let socket_addr = SocketAddr::new(ip_address, config.port);
-    info!("Initialized: Listening address: {}", socket_addr);
+    tracing::info!("Initialized: Listening address: {}", socket_addr);
 
     let app_state = AppState::new(
         user_store_type,
@@ -100,7 +98,7 @@ async fn main() {
         email_client_type,
         config_type,
     );
-    info!("Initialized: App State");
+    tracing::info!("Initialized: App State");
 
     Application::build(app_state, socket_addr)
         .await

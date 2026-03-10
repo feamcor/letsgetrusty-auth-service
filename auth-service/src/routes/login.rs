@@ -2,7 +2,7 @@ use crate::app_state::AppState;
 use crate::domain::LoginAttemptId;
 use crate::domain::TwoFactorAuthCode;
 use crate::domain::User;
-use crate::utils::api_error::ApiError;
+use crate::utils::api_error::ApiResult;
 use crate::utils::auth::generate_auth_cookie;
 use axum::Json;
 use axum::extract::State;
@@ -37,17 +37,15 @@ impl Default for TwoFactorAuthResponse {
     }
 }
 
-#[tracing::instrument(name = "ApiHandlerLogin", skip_all, err(Debug))]
+#[tracing::instrument(name = "ApiHandlerLogin", skip_all)]
 pub async fn login(
     State(state): State<AppState>,
     jar: CookieJar,
     Json(request): Json<LoginRequest>,
-) -> Result<(CookieJar, impl IntoResponse), ApiError> {
+) -> ApiResult<(CookieJar, impl IntoResponse)> {
     User::try_new(&request.email, &request.password, false).await?;
     let user_store = state.user_store.inner();
-    user_store
-        .validate_user(&request.email, &request.password)
-        .await?;
+    user_store.validate_user(&request.email, &request.password).await?;
     let user = user_store.get_user(&request.email).await?;
 
     if user.requires_2fa {
@@ -68,10 +66,7 @@ pub async fn login(
             .inner()
             .add_code(user.email, login_attempt_id, auth_code)
             .await?;
-        return Ok((
-            jar,
-            (StatusCode::PARTIAL_CONTENT, Json(response)).into_response(),
-        ));
+        return Ok((jar, (StatusCode::PARTIAL_CONTENT, Json(response)).into_response()));
     }
 
     let config = state.config.inner();

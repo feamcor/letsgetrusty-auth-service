@@ -19,12 +19,6 @@ use std::fmt;
 use std::net::Ipv4Addr;
 use std::net::Ipv6Addr;
 use std::sync::Arc;
-use tracing::error;
-use tracing::info;
-use tracing::warn;
-
-#[allow(unused_imports)]
-use tracing::Level;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -196,10 +190,7 @@ impl Display for Config {
             .field("log", &self.log)
             .field("port", &self.port)
             .field("store_engine", &self.store_engine)
-            .field(
-                "two_factor_auth_ttl_seconds",
-                &self.two_factor_auth_ttl_seconds,
-            )
+            .field("two_factor_auth_ttl_seconds", &self.two_factor_auth_ttl_seconds)
             .finish()
     }
 }
@@ -233,7 +224,7 @@ impl Config {
     pub fn init_from_env() -> Self {
         let dotenv = dotenv_override().ok();
         if let Some(dotenv) = dotenv {
-            info!("Initialized: {}", dotenv.display());
+            tracing::info!("Initialized: {}", dotenv.display());
         }
 
         let mut ipv4 = env::var(consts::AUTH_SERVICE_HOST_IPV4)
@@ -247,12 +238,12 @@ impl Config {
         if ipv4.is_none() && ipv6.is_none() {
             ipv4 = consts::AUTH_SERVICE_HOST_IPV4_DEFAULT;
             ipv6 = consts::AUTH_SERVICE_HOST_IPV6_DEFAULT;
-            warn!(
+            tracing::warn!(
                 "both {} and {} are not set",
                 consts::AUTH_SERVICE_HOST_IPV4,
                 consts::AUTH_SERVICE_HOST_IPV6,
             );
-            warn!(
+            tracing::warn!(
                 "using IPv4 default value: {}={:?}",
                 consts::AUTH_SERVICE_HOST_IPV4,
                 consts::AUTH_SERVICE_HOST_IPV4_DEFAULT,
@@ -261,12 +252,12 @@ impl Config {
 
         if ipv4.is_some() && ipv6.is_some() {
             ipv6 = consts::AUTH_SERVICE_HOST_IPV6_DEFAULT;
-            warn!(
+            tracing::warn!(
                 "both {} and {} are set",
                 consts::AUTH_SERVICE_HOST_IPV4,
                 consts::AUTH_SERVICE_HOST_IPV6,
             );
-            warn!("invalidating IPv6");
+            tracing::warn!("invalidating IPv6");
         }
 
         let port = env::var(consts::AUTH_SERVICE_PORT)
@@ -274,7 +265,7 @@ impl Config {
             .and_then(|s| s.parse::<u16>().ok())
             .filter(|&p| p >= 1024)
             .unwrap_or_else(|| {
-                warn!(
+                tracing::warn!(
                     "using default value: {}={}",
                     consts::AUTH_SERVICE_PORT,
                     consts::AUTH_SERVICE_PORT_DEFAULT,
@@ -286,7 +277,7 @@ impl Config {
             .ok()
             .and_then(|s| LogLevel::from_str(&s, true).ok())
             .unwrap_or_else(|| {
-                warn!(
+                tracing::warn!(
                     "using default value: {}={}",
                     consts::AUTH_SERVICE_LOG,
                     consts::AUTH_SERVICE_LOG_DEFAULT,
@@ -295,7 +286,7 @@ impl Config {
             });
 
         let cache_hostname = env::var(consts::AUTH_SERVICE_CACHE_HOSTNAME).unwrap_or_else(|_| {
-            warn!(
+            tracing::warn!(
                 "using default value: {}={}",
                 consts::AUTH_SERVICE_CACHE_HOSTNAME,
                 consts::AUTH_SERVICE_CACHE_HOSTNAME_DEFAULT,
@@ -308,7 +299,7 @@ impl Config {
             .and_then(|s| s.parse::<u16>().ok())
             .filter(|&p| p >= 1024)
             .unwrap_or_else(|| {
-                warn!(
+                tracing::warn!(
                     "using default value: {}={}",
                     consts::AUTH_SERVICE_CACHE_PORT,
                     consts::AUTH_SERVICE_CACHE_PORT_DEFAULT,
@@ -317,7 +308,7 @@ impl Config {
             });
 
         let db_hostname = env::var(consts::AUTH_SERVICE_DB_HOSTNAME).unwrap_or_else(|_| {
-            warn!(
+            tracing::warn!(
                 "using default value: {}={}",
                 consts::AUTH_SERVICE_DB_HOSTNAME,
                 consts::AUTH_SERVICE_DB_HOSTNAME_DEFAULT,
@@ -330,7 +321,7 @@ impl Config {
             .and_then(|s| s.parse::<u16>().ok())
             .filter(|&p| p >= 1024)
             .unwrap_or_else(|| {
-                warn!(
+                tracing::warn!(
                     "using default value: {}={}",
                     consts::AUTH_SERVICE_DB_PORT,
                     consts::AUTH_SERVICE_DB_PORT_DEFAULT,
@@ -339,7 +330,7 @@ impl Config {
             });
 
         let db_name = env::var(consts::AUTH_SERVICE_DB_DATABASE).unwrap_or_else(|_| {
-            warn!(
+            tracing::warn!(
                 "using default value: {}={}",
                 consts::AUTH_SERVICE_DB_DATABASE,
                 consts::AUTH_SERVICE_DB_DATABASE_DEFAULT,
@@ -348,7 +339,7 @@ impl Config {
         });
 
         let db_username = env::var(consts::AUTH_SERVICE_DB_USERNAME).unwrap_or_else(|_| {
-            warn!(
+            tracing::warn!(
                 "using default value: {}={}",
                 consts::AUTH_SERVICE_DB_USERNAME,
                 consts::AUTH_SERVICE_DB_USERNAME_DEFAULT,
@@ -361,7 +352,7 @@ impl Config {
             .and_then(|s| s.parse::<u32>().ok())
             .filter(|&size| (1..10).contains(&size))
             .unwrap_or_else(|| {
-                warn!(
+                tracing::warn!(
                     "using default value: {}={}",
                     consts::AUTH_SERVICE_DB_POOL_MIN_SIZE,
                     consts::AUTH_SERVICE_DB_POOL_MIN_SIZE_DEFAULT,
@@ -374,7 +365,7 @@ impl Config {
             .and_then(|s| s.parse::<u32>().ok())
             .filter(|&size| (1..100).contains(&size))
             .unwrap_or_else(|| {
-                warn!(
+                tracing::warn!(
                     "using default value: {}={}",
                     consts::AUTH_SERVICE_DB_POOL_MAX_SIZE,
                     consts::AUTH_SERVICE_DB_POOL_MAX_SIZE_DEFAULT,
@@ -387,7 +378,7 @@ impl Config {
             .and_then(|s| s.parse::<u32>().ok())
             .filter(|&ttl| (300..3600).contains(&ttl))
             .unwrap_or_else(|| {
-                warn!(
+                tracing::warn!(
                     "using default value: {}={}",
                     consts::AUTH_SERVICE_JWT_TTL_SECONDS,
                     consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT,
@@ -400,7 +391,7 @@ impl Config {
             .and_then(|s| s.parse::<u32>().ok())
             .filter(|&ttl| (60..900).contains(&ttl))
             .unwrap_or_else(|| {
-                warn!(
+                tracing::warn!(
                     "using default value: {}={}",
                     consts::AUTH_SERVICE_2FA_TTL_SECONDS,
                     consts::AUTH_SERVICE_2FA_TTL_SECONDS_DEFAULT,
@@ -412,7 +403,7 @@ impl Config {
             .ok()
             .and_then(|s| StoreEngine::from_str(&s, true).ok())
             .unwrap_or_else(|| {
-                warn!(
+                tracing::warn!(
                     "using default value: {}={}",
                     consts::AUTH_SERVICE_STORE_ENGINE,
                     consts::AUTH_SERVICE_STORE_ENGINE_DEFAULT,
@@ -425,7 +416,7 @@ impl Config {
             .and_then(|s| s.parse::<u16>().ok())
             .filter(|&p| p >= 1024)
             .unwrap_or_else(|| {
-                warn!(
+                tracing::warn!(
                     "using default value: {}={}",
                     consts::APP_SERVICE_PORT,
                     consts::APP_SERVICE_PORT_DEFAULT,
@@ -461,7 +452,7 @@ impl Config {
     pub fn init_from_env_and_cli() -> Self {
         let dotenv = dotenv_override().ok();
         if let Some(dotenv) = dotenv {
-            info!("Initialized: {}", dotenv.display());
+            tracing::info!("Initialized: {}", dotenv.display());
         }
         let mut config = Self::parse();
         let db_password = secret_from_environment(consts::AUTH_SERVICE_DB_PASSWORD);
@@ -519,13 +510,13 @@ pub fn secret_from_environment(environment_variable: &str) -> Option<SecretStrin
     let secret = match env::var(environment_variable) {
         Ok(string) => string,
         Err(error) => {
-            error!("{}: {}", environment_variable, error.to_string());
+            tracing::error!("{}: {}", environment_variable, error.to_string());
             return None;
         }
     };
 
     if secret.trim().is_empty() {
-        error!("{}: {}", environment_variable, "is empty");
+        tracing::error!("{}: {}", environment_variable, "is empty");
         return None;
     }
 

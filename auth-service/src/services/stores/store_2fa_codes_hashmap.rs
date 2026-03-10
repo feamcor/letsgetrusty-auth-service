@@ -3,6 +3,7 @@ use crate::domain::LoginAttemptId;
 use crate::domain::TwoFactorAuthCode;
 use crate::services::TwoFactorAuthCodeStore;
 use crate::services::TwoFactorAuthCodeStoreError;
+use crate::services::TwoFactorAuthCodeStoreResult;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
@@ -18,22 +19,19 @@ impl TwoFactorAuthCodeStore for HashmapTwoFactorAuthCodeStore {
         email: Email,
         login_attempt_id: LoginAttemptId,
         two_fa_code: TwoFactorAuthCode,
-    ) -> Result<(), TwoFactorAuthCodeStoreError> {
+    ) -> TwoFactorAuthCodeStoreResult<()> {
         let mut codes = self.codes.write().await;
         codes.insert(email, (login_attempt_id, two_fa_code));
         Ok(())
     }
 
-    async fn remove_code(&self, email: &Email) -> Result<(), TwoFactorAuthCodeStoreError> {
+    async fn remove_code(&self, email: &Email) -> TwoFactorAuthCodeStoreResult<()> {
         let mut codes = self.codes.write().await;
         codes.remove(email);
         Ok(())
     }
 
-    async fn get_code(
-        &self,
-        email: &Email,
-    ) -> Result<(LoginAttemptId, TwoFactorAuthCode), TwoFactorAuthCodeStoreError> {
+    async fn get_code(&self, email: &Email) -> TwoFactorAuthCodeStoreResult<(LoginAttemptId, TwoFactorAuthCode)> {
         let codes = self.codes.read().await;
         match codes.get(email) {
             Some(code) => Ok(code.clone()),
@@ -68,9 +66,6 @@ mod tests {
         assert!(result.is_ok());
 
         let result = store.get_code(&email).await;
-        assert!(matches!(
-            result,
-            Err(TwoFactorAuthCodeStoreError::CodeNotFound)
-        ));
+        assert!(matches!(result, Err(TwoFactorAuthCodeStoreError::CodeNotFound)));
     }
 }

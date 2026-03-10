@@ -35,11 +35,7 @@ async fn should_return_200_if_valid_jwt(ctx: &mut TestAppAsyncContext) {
         .expect("No auth cookie found");
     let response = app.post_logout().await;
     assert_eq!(response.status(), StatusCode::OK);
-    let is_banned = app
-        .banned_token_store
-        .inner()
-        .is_token_banned(jwt.value())
-        .await;
+    let is_banned = app.banned_token_store.inner().is_token_banned(jwt.value()).await;
     assert!(is_banned.unwrap());
 }
 
@@ -65,10 +61,7 @@ async fn should_return_400_if_logout_called_twice_in_a_row(ctx: &mut TestAppAsyn
     assert_eq!(response.status(), StatusCode::OK);
     let response = app.post_logout().await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        APPLICATION_JSON.as_ref()
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
 }
 
 #[test_context(TestAppAsyncContext)]
@@ -78,10 +71,7 @@ async fn should_return_400_if_jwt_cookie_missing(ctx: &mut TestAppAsyncContext) 
     ctx.db_url = app.db_url.clone();
     let response = app.post_logout().await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        APPLICATION_JSON.as_ref()
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
 }
 
 #[test_context(TestAppAsyncContext)]
@@ -95,8 +85,5 @@ async fn should_return_401_if_invalid_token(ctx: &mut TestAppAsyncContext) {
     );
     let response = app.post_logout().await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        APPLICATION_JSON.as_ref()
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
 }

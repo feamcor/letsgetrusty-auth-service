@@ -61,10 +61,7 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled(ctx: &mut TestAp
         assert_eq!(signup_response.status(), StatusCode::CREATED);
         let response = app.post_login(&request).await;
         assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
-        assert_eq!(
-            response.headers().get(CONTENT_TYPE).unwrap(),
-            APPLICATION_JSON.as_ref()
-        );
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
         let body = response
             .json::<TwoFactorAuthResponse>()
             .await
@@ -104,10 +101,7 @@ async fn should_return_400_if_invalid_input(ctx: &mut TestAppAsyncContext) {
     for request in &requests {
         let response = app.post_login(request).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        assert_eq!(
-            response.headers().get(CONTENT_TYPE).unwrap(),
-            APPLICATION_JSON.as_ref()
-        );
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
     }
 }
 
@@ -130,10 +124,7 @@ async fn should_return_401_if_incorrect_credentials(ctx: &mut TestAppAsyncContex
         assert_eq!(signup_response.status(), StatusCode::CREATED);
         let response = app.post_login(&request).await;
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-        assert_eq!(
-            response.headers().get(CONTENT_TYPE).unwrap(),
-            APPLICATION_JSON.as_ref()
-        );
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
     }
 }
 
@@ -169,9 +160,6 @@ async fn should_return_500_if_unexpected_error(ctx: &mut TestAppAsyncContext) {
             StatusCode::INTERNAL_SERVER_ERROR,
             "Input: {request:?}"
         );
-        assert_eq!(
-            response.headers().get(CONTENT_TYPE).unwrap(),
-            APPLICATION_JSON.as_ref()
-        );
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
     }
 }

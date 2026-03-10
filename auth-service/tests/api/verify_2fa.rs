@@ -46,10 +46,7 @@ async fn verify_2fa_successful(ctx: &mut TestAppAsyncContext) {
     });
     let response = app.post_verify_2fa(&request).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        APPLICATION_JSON.as_ref()
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
 }
 
 #[test_context(TestAppAsyncContext)]
@@ -77,10 +74,7 @@ async fn should_return_400_if_invalid_input(ctx: &mut TestAppAsyncContext) {
     for request in &requests {
         let response = app.post_verify_2fa(&request).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        assert_eq!(
-            response.headers().get(CONTENT_TYPE).unwrap(),
-            APPLICATION_JSON.as_ref()
-        );
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
     }
 }
 
@@ -116,10 +110,7 @@ async fn should_return_401_if_incorrect_credentials(ctx: &mut TestAppAsyncContex
     });
     let response = app.post_verify_2fa(&request).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        APPLICATION_JSON.as_ref()
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
 }
 
 #[test_context(TestAppAsyncContext)]
@@ -150,11 +141,7 @@ async fn should_return_401_if_old_attempt_id(ctx: &mut TestAppAsyncContext) {
     let login_response = app.post_login(&login_request).await;
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
     let store = &app.two_factor_auth_code_store;
-    let (_, auth_code) = store
-        .inner()
-        .get_code(&Email::parse(&email).unwrap())
-        .await
-        .unwrap();
+    let (_, auth_code) = store.inner().get_code(&Email::parse(&email).unwrap()).await.unwrap();
     let request = json!({
         "email": email,
         "loginAttemptId": attempt_id, // this is the attempt id of the first login
@@ -162,10 +149,7 @@ async fn should_return_401_if_old_attempt_id(ctx: &mut TestAppAsyncContext) {
     });
     let response = app.post_verify_2fa(&request).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        APPLICATION_JSON.as_ref()
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
 }
 
 #[test_context(TestAppAsyncContext)]
@@ -189,11 +173,7 @@ async fn should_return_401_if_old_auth_code(ctx: &mut TestAppAsyncContext) {
     let login_response = app.post_login(&login_request).await;
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
     let store = &app.two_factor_auth_code_store;
-    let (_, auth_code) = store
-        .inner()
-        .get_code(&Email::parse(&email).unwrap())
-        .await
-        .unwrap();
+    let (_, auth_code) = store.inner().get_code(&Email::parse(&email).unwrap()).await.unwrap();
     let login_response = app.post_login(&login_request).await;
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
     let attempt_id = login_response
@@ -208,10 +188,7 @@ async fn should_return_401_if_old_auth_code(ctx: &mut TestAppAsyncContext) {
     });
     let response = app.post_verify_2fa(&request).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        APPLICATION_JSON.as_ref()
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
 }
 
 #[test_context(TestAppAsyncContext)]
@@ -235,11 +212,7 @@ async fn should_return_401_if_same_code_twice(ctx: &mut TestAppAsyncContext) {
     let login_response = app.post_login(&login_request).await;
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
     let store = &app.two_factor_auth_code_store;
-    let (attempt_id, auth_code) = store
-        .inner()
-        .get_code(&Email::parse(&email).unwrap())
-        .await
-        .unwrap();
+    let (attempt_id, auth_code) = store.inner().get_code(&Email::parse(&email).unwrap()).await.unwrap();
     let request = json!({
         "email": email,
         "loginAttemptId": attempt_id,
@@ -249,10 +222,7 @@ async fn should_return_401_if_same_code_twice(ctx: &mut TestAppAsyncContext) {
     assert_eq!(response.status(), StatusCode::OK);
     let response = app.post_verify_2fa(&request).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        APPLICATION_JSON.as_ref()
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
 }
 
 #[test_context(TestAppAsyncContext)]

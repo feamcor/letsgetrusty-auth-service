@@ -1,5 +1,6 @@
 use crate::services::BannedTokenStore;
 use crate::services::BannedTokenStoreError;
+use crate::services::BannedTokenStoreResult;
 use std::collections::HashSet;
 use tokio::sync::RwLock;
 
@@ -10,7 +11,7 @@ pub struct HashsetBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for HashsetBannedTokenStore {
-    async fn add_token(&self, token: &str) -> Result<(), BannedTokenStoreError> {
+    async fn add_token(&self, token: &str) -> BannedTokenStoreResult<()> {
         if self.tokens.read().await.contains(token) {
             Err(BannedTokenStoreError::TokenAlreadyExists(token.to_string()))
         } else {
@@ -19,11 +20,11 @@ impl BannedTokenStore for HashsetBannedTokenStore {
         }
     }
 
-    async fn is_token_banned(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
+    async fn is_token_banned(&self, token: &str) -> BannedTokenStoreResult<bool> {
         Ok(self.tokens.read().await.contains(token))
     }
 
-    async fn remove_token(&self, token: &str) -> Result<(), BannedTokenStoreError> {
+    async fn remove_token(&self, token: &str) -> BannedTokenStoreResult<()> {
         if self.tokens.write().await.remove(token) {
             Ok(())
         } else {

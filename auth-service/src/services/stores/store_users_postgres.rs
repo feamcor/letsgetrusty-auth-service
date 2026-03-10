@@ -3,23 +3,22 @@ use crate::domain::HashedPassword;
 use crate::domain::User;
 use crate::services::UserStore;
 use crate::services::UserStoreError;
-use sqlx::PgPool;
-use tracing::error;
+use crate::services::UserStoreResult;
 
 pub struct PostgresUserStore {
-    pool: PgPool,
+    pool: sqlx::PgPool,
 }
 
 impl PostgresUserStore {
     #[must_use]
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: sqlx::PgPool) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait::async_trait]
 impl UserStore for PostgresUserStore {
-    async fn add_user(&self, user: User) -> Result<(), UserStoreError> {
+    async fn add_user(&self, user: User) -> UserStoreResult<()> {
         match sqlx::query!(
             r#"
             INSERT INTO auth.users (email, password_hash, requires_2fa)
@@ -39,18 +38,18 @@ impl UserStore for PostgresUserStore {
                 if code == "23505" {
                     Err(UserStoreError::UserAlreadyExists(user.email.to_string()))
                 } else {
-                    error!("Unexpected error on adding user: {}: {}", code, error);
+                    tracing::error!("Unexpected error on adding user: {}: {}", code, error);
                     Err(UserStoreError::UnexpectedError(error.into()))
                 }
             }
             Err(error) => {
-                error!("Unexpected error on adding user: {}", error);
+                tracing::error!("Unexpected error on adding user: {}", error);
                 Err(UserStoreError::UnexpectedError(error.into()))
             }
         }
     }
 
-    async fn get_user(&self, email: &str) -> Result<User, UserStoreError> {
+    async fn get_user(&self, email: &str) -> UserStoreResult<User> {
         match sqlx::query!(
             r#"
             SELECT users.email, users.password_hash, users.requires_2fa
@@ -63,8 +62,7 @@ impl UserStore for PostgresUserStore {
         .await
         {
             Ok(Some(record)) => Ok(User {
-                email: Email::parse(&record.email)
-                    .map_err(|e| UserStoreError::UnexpectedError(e.into()))?,
+                email: Email::parse(&record.email).map_err(|e| UserStoreError::UnexpectedError(e.into()))?,
                 password: HashedPassword::parse_password_hash(&record.password_hash)
                     .map_err(|e| UserStoreError::UnexpectedError(e.into()))?,
                 requires_2fa: record.requires_2fa,

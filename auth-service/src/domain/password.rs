@@ -5,27 +5,23 @@ use argon2::PasswordHash;
 use argon2::PasswordHasher;
 use argon2::PasswordVerifier;
 use argon2::Version;
+use argon2::password_hash;
 use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
+use color_eyre::eyre;
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
 use tokio::task::spawn_blocking;
-use tracing::error;
 use zxcvbn::Score;
 use zxcvbn::zxcvbn;
-
-#[allow(unused_imports)]
-use tracing::Level;
 
 // NIST Special Publication 800-63B
 // Section 3.1.1.2 Password Verifiers
 // https://pages.nist.gov/800-63-4/sp800-63b.html
 pub const MIN_PASSWORD_LENGTH: usize = 8;
 pub const MAX_PASSWORD_LENGTH: usize = 64;
-pub const PASSWORD_LENGTH_RANGE: std::ops::Range<usize> =
-    MIN_PASSWORD_LENGTH..MAX_PASSWORD_LENGTH + 1;
-pub const SAFE_PASSWORD_LENGTH_RANGE: std::ops::Range<usize> =
-    MIN_PASSWORD_LENGTH * 2..MAX_PASSWORD_LENGTH + 1;
+pub const PASSWORD_LENGTH_RANGE: std::ops::Range<usize> = MIN_PASSWORD_LENGTH..MAX_PASSWORD_LENGTH + 1;
+pub const SAFE_PASSWORD_LENGTH_RANGE: std::ops::Range<usize> = MIN_PASSWORD_LENGTH * 2..MAX_PASSWORD_LENGTH + 1;
 const MIN_PASSWORD_ENTROPY: Score = Score::Three;
 
 #[derive(thiserror::Error, Debug)]
@@ -36,20 +32,23 @@ pub enum PasswordError {
     TooLong,
     #[error("Password is weak")]
     Weak,
-    #[error("Invalid password hash: {0}")]
-    InvalidPasswordHash(String),
+    #[error(transparent)]
+    InvalidPasswordHash(#[from] password_hash::Error),
     #[error("Password mismatch")]
     PasswordMismatch,
-    #[error("Unexpected error: {0}")]
-    Unexpected(String),
+    #[error(transparent)]
+    UnexpectedError(#[from] eyre::Report),
 }
+
+pub type PasswordResult<T> = Result<T, PasswordError>;
 
 #[derive(Debug, Clone)]
 pub struct HashedPassword(SecretString);
 
 impl HashedPassword {
-    #[tracing::instrument(name = "HashedPasswordParsing", level = Level::TRACE, skip_all)]
-    pub async fn parse(raw: &str, user: &str) -> Result<Self, PasswordError> {
+    #[tracing::instrument(name = "HashedPasswordParsing", level = tracing::Level::TRACE, skip_all
+    )]
+    pub async fn parse(raw: &str, user: &str) -> PasswordResult<Self> {
         if raw.len() < MIN_PASSWORD_LENGTH {
             return Err(PasswordError::TooShort);
         }
@@ -66,19 +65,20 @@ impl HashedPassword {
         Ok(Self(secret))
     }
 
-    pub fn parse_password_hash(hash: &str) -> Result<Self, PasswordError> {
+    pub fn parse_password_hash(hash: &str) -> PasswordResult<Self> {
         match PasswordHash::new(hash) {
             Ok(password_hash) => {
                 let secret = SecretString::from(password_hash.to_string());
                 let hashed_password = Self(secret);
                 Ok(hashed_password)
             }
-            Err(error) => Err(PasswordError::InvalidPasswordHash(error.to_string())),
+            Err(error) => Err(PasswordError::InvalidPasswordHash(error)),
         }
     }
 
-    #[tracing::instrument(name = "RawPasswordVerification", level = Level::TRACE, skip_all)]
-    pub async fn verify_raw_password(&self, candidate: &str) -> Result<(), PasswordError> {
+    #[tracing::instrument(name = "RawPasswordVerification", level = tracing::Level::TRACE, skip_all
+    )]
+    pub async fn verify_raw_password(&self, candidate: &str) -> PasswordResult<()> {
         let current_span = tracing::Span::current();
         let candidate = candidate.to_owned();
         let secret = self.0.expose_secret().to_owned();
@@ -94,8 +94,8 @@ impl HashedPassword {
                 Err(_) => Err(PasswordError::PasswordMismatch),
             },
             Err(error) => {
-                error!("{}", error);
-                Err(PasswordError::Unexpected(error.to_string()))
+                tracing::error!("{}", error);
+                Err(PasswordError::UnexpectedError(error.into()))
             }
         }
     }
@@ -112,26 +112,33 @@ impl AsRef<str> for HashedPassword {
     }
 }
 
-#[tracing::instrument(name = "PasswordHashComputation", level = Level::TRACE, skip_all)]
-async fn compute_password_hash(password: &str) -> Result<String, PasswordError> {
+#[tracing::instrument(name = "PasswordHashComputation", level = tracing::Level::TRACE, skip_all
+)]
+async fn compute_password_hash(password: &str) -> eyre::Result<String> {
     let current_span = tracing::Span::current();
     let password = password.to_owned();
-    let task = spawn_blocking(move || -> Result<String, PasswordError> {
+    let task = spawn_blocking(move || -> password_hash::Result<String> {
         current_span.in_scope(|| {
             let salt: SaltString = SaltString::generate(&mut OsRng);
-            let params = Params::new(15000, 2, 1, None)
-                .map_err(|e| PasswordError::Unexpected(e.to_string()))?;
+            let params = Params::new(15000, 2, 1, None)?;
             let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-            let hash = argon2
-                .hash_password(password.as_bytes(), &salt)
-                .map_err(|e| PasswordError::Unexpected(e.to_string()))?;
+            let hash = argon2.hash_password(password.as_bytes(), &salt)?;
             Ok(hash.to_string())
         })
     });
-    task.await.unwrap_or_else(|error| {
-        error!("{}", error);
-        Err(PasswordError::Unexpected(error.to_string()))
-    })
+    match task.await {
+        Ok(result) => match result {
+            Ok(hash) => Ok(hash),
+            Err(error) => {
+                tracing::error!("{}", error);
+                Err(eyre::eyre!(PasswordError::UnexpectedError(error.into())))
+            }
+        },
+        Err(error) => {
+            tracing::error!("{}", error);
+            Err(eyre::eyre!(PasswordError::UnexpectedError(error.into())))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -226,18 +233,8 @@ mod tests {
             .to_string();
         let hash_password = HashedPassword::parse_password_hash(&hash_string).unwrap();
         assert_eq!(hash_password.0.expose_secret(), hash_string.as_str());
-        assert!(
-            hash_password
-                .0
-                .expose_secret()
-                .starts_with("$argon2id$v=19$")
-        );
-        assert!(
-            hash_password
-                .verify_raw_password(raw_password)
-                .await
-                .is_ok()
-        );
+        assert!(hash_password.0.expose_secret().starts_with("$argon2id$v=19$"));
+        assert!(hash_password.verify_raw_password(raw_password).await.is_ok());
     }
 
     #[derive(Debug, Clone)]
@@ -251,14 +248,11 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore]
+    #[ignore = "Slow Property Test"]
     #[quickcheck]
-    async fn prop_valid_passwords_are_parsed_successfully(
-        valid_password: ValidPasswordFixture,
-    ) -> bool {
+    #[allow(clippy::needless_pass_by_value)]
+    async fn prop_valid_passwords_are_parsed_successfully(valid_password: ValidPasswordFixture) -> bool {
         let user: String = SafeEmail().fake();
-        HashedPassword::parse(&valid_password.0, &user)
-            .await
-            .is_ok()
+        HashedPassword::parse(&valid_password.0, &user).await.is_ok()
     }
 }

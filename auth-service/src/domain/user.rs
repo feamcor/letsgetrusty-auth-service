@@ -19,11 +19,7 @@ pub enum UserError {
 }
 
 impl User {
-    pub async fn try_new(
-        email: &str,
-        password: &str,
-        requires_2fa: bool,
-    ) -> Result<Self, UserError> {
+    pub async fn try_new(email: &str, password: &str, requires_2fa: bool) -> Result<Self, UserError> {
         let email = Email::parse(email).map_err(UserError::InvalidEmail)?;
         let password = match HashedPassword::parse(password, email.as_ref()).await {
             Ok(password) => password,
@@ -53,10 +49,7 @@ mod tests {
         let password: String = SAFE_PASSWORD_LENGTH_RANGE.fake();
         let requires_2fa = rand::random();
         let result = User::try_new(&email, &password, requires_2fa).await;
-        assert!(
-            result.is_ok(),
-            "Failed for email: {email} and password: {password}"
-        );
+        assert!(result.is_ok(), "Failed for email: {email} and password: {password}");
     }
 
     #[tokio::test]

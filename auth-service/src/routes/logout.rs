@@ -1,5 +1,6 @@
 use crate::app_state::AppState;
 use crate::utils::api_error::ApiError;
+use crate::utils::api_error::ApiResult;
 use crate::utils::auth::JWT_COOKIE_NAME;
 use crate::utils::auth::create_auth_cookie;
 use crate::utils::auth::validate_token;
@@ -8,11 +9,8 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum_extra::extract::CookieJar;
 
-#[tracing::instrument(name = "ApiHandlerLogout", skip_all, err(Debug))]
-pub async fn logout(
-    State(state): State<AppState>,
-    jar: CookieJar,
-) -> Result<(CookieJar, impl IntoResponse), ApiError> {
+#[tracing::instrument(name = "ApiHandlerLogout", skip_all)]
+pub async fn logout(State(state): State<AppState>, jar: CookieJar) -> ApiResult<(CookieJar, impl IntoResponse)> {
     let Some(cookie) = jar.get(JWT_COOKIE_NAME) else {
         return Err(ApiError::TokenMissing);
     };

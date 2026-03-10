@@ -1,4 +1,5 @@
+attr_fn_like_width = 120
 imports_indent = "Block"
 imports_layout = "Vertical"
 imports_granularity = "Item"
-max_width = 100
+max_width = 120

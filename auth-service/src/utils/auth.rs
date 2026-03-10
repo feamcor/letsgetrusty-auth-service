@@ -14,11 +14,21 @@ use serde::Serialize;
 
 pub const JWT_COOKIE_NAME: &str = "jwt";
 
-pub fn generate_auth_cookie(
-    email: &Email,
-    secret: &SecretString,
-    ttl: i64,
-) -> Result<Cookie<'static>, GenerateTokenError> {
+pub type GenerateTokenResult<T> = Result<T, GenerateTokenError>;
+
+#[derive(thiserror::Error, Debug)]
+pub enum GenerateTokenError {
+    #[error(transparent)]
+    TokenError(#[from] jsonwebtoken::errors::Error),
+    #[error("Expiration delta is out-of-range")]
+    ExpirationDeltaOutOfRange,
+    #[error("Expiration is out-of-range")]
+    ExpirationOutOfRange,
+    #[error("Expiration conversion error")]
+    ExpirationConversionError,
+}
+
+pub fn generate_auth_cookie(email: &Email, secret: &SecretString, ttl: i64) -> GenerateTokenResult<Cookie<'static>> {
     let token = generate_auth_token(email, secret, ttl)?;
     Ok(create_auth_cookie(token))
 }
@@ -33,27 +43,15 @@ pub fn create_auth_cookie(token: String) -> Cookie<'static> {
         .build()
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum GenerateTokenError {
-    #[error("Token error: {0}")]
-    TokenError(#[from] jsonwebtoken::errors::Error),
-    #[error("Unexpected error")]
-    UnexpectedError,
-}
-
-fn generate_auth_token(
-    email: &Email,
-    secret: &SecretString,
-    ttl: i64,
-) -> Result<String, GenerateTokenError> {
-    let delta = chrono::Duration::try_seconds(ttl).ok_or(GenerateTokenError::UnexpectedError)?;
+fn generate_auth_token(email: &Email, secret: &SecretString, ttl: i64) -> GenerateTokenResult<String> {
+    let delta = chrono::Duration::try_seconds(ttl).ok_or(GenerateTokenError::ExpirationDeltaOutOfRange)?;
     let expiration = Utc::now()
         .checked_add_signed(delta)
-        .ok_or(GenerateTokenError::UnexpectedError)?
+        .ok_or(GenerateTokenError::ExpirationOutOfRange)?
         .timestamp();
     let expiration: usize = expiration
         .try_into()
-        .map_err(|_| GenerateTokenError::UnexpectedError)?;
+        .map_err(|_| GenerateTokenError::ExpirationConversionError)?;
     let subscriber = email.as_ref().to_owned();
     let claims = Claims {
         sub: subscriber,
@@ -62,10 +60,13 @@ fn generate_auth_token(
     create_token(&claims, secret).map_err(GenerateTokenError::TokenError)
 }
 
-pub async fn validate_token(
-    token: &str,
-    secret: &SecretString,
-) -> Result<Claims, jsonwebtoken::errors::Error> {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Claims {
+    pub sub: String,
+    pub exp: usize,
+}
+
+pub async fn validate_token(token: &str, secret: &SecretString) -> jsonwebtoken::errors::Result<Claims> {
     decode::<Claims>(
         token,
         &DecodingKey::from_secret(secret.expose_secret().as_bytes()),
@@ -74,21 +75,12 @@ pub async fn validate_token(
     .map(|data| data.claims)
 }
 
-fn create_token(
-    claims: &Claims,
-    secret: &SecretString,
-) -> Result<String, jsonwebtoken::errors::Error> {
+fn create_token(claims: &Claims, secret: &SecretString) -> jsonwebtoken::errors::Result<String> {
     encode(
         &jsonwebtoken::Header::default(),
         &claims,
         &EncodingKey::from_secret(secret.expose_secret().as_bytes()),
     )
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Claims {
-    pub sub: String,
-    pub exp: usize,
 }
 
 #[cfg(test)]
@@ -105,12 +97,8 @@ mod tests {
         let email = SafeEmail().fake::<String>();
         let email = Email::parse(&email).unwrap();
         let secret = secret_from_environment(consts::AUTH_SERVICE_JWT_SECRET).unwrap();
-        let cookie = generate_auth_cookie(
-            &email,
-            &secret,
-            i64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT),
-        )
-        .unwrap();
+        let cookie =
+            generate_auth_cookie(&email, &secret, i64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT)).unwrap();
         assert_eq!(cookie.name(), JWT_COOKIE_NAME);
         assert_eq!(cookie.value().split('.').count(), 3);
         assert_eq!(cookie.path(), Some("/"));
@@ -136,12 +124,8 @@ mod tests {
         let email = SafeEmail().fake::<String>();
         let email = Email::parse(&email).unwrap();
         let secret = secret_from_environment(consts::AUTH_SERVICE_JWT_SECRET).unwrap();
-        let result = generate_auth_token(
-            &email,
-            &secret,
-            i64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT),
-        )
-        .unwrap();
+        let result =
+            generate_auth_token(&email, &secret, i64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT)).unwrap();
         assert_eq!(result.split('.').count(), 3);
     }
 
@@ -151,12 +135,8 @@ mod tests {
         let email_string = SafeEmail().fake::<String>();
         let email = Email::parse(&email_string).unwrap();
         let secret = secret_from_environment(consts::AUTH_SERVICE_JWT_SECRET).unwrap();
-        let token = generate_auth_token(
-            &email,
-            &secret,
-            i64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT),
-        )
-        .unwrap();
+        let token =
+            generate_auth_token(&email, &secret, i64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT)).unwrap();
         let result = validate_token(
             &token,
             &secret_from_environment(consts::AUTH_SERVICE_JWT_SECRET).unwrap(),

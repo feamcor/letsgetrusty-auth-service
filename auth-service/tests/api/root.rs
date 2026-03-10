@@ -12,8 +12,5 @@ async fn should_return_200_if_returns_auth_ui(ctx: &mut TestAppAsyncContext) {
     ctx.db_url = app.db_url.clone();
     let response = app.get_root().await;
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        TEXT_HTML.as_ref()
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), TEXT_HTML.as_ref());
 }

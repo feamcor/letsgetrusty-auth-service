@@ -1,6 +1,7 @@
 use crate::config::consts;
 use crate::services::BannedTokenStore;
 use crate::services::BannedTokenStoreError;
+use crate::services::BannedTokenStoreResult;
 use redis::Commands;
 use redis::ExistenceCheck;
 use redis::SetExpiry;
@@ -32,7 +33,7 @@ impl RedisBannedTokenStore {
 #[async_trait::async_trait]
 impl BannedTokenStore for RedisBannedTokenStore {
     #[tracing::instrument(name = "AddBannedTokenIntoCache", level = Level::TRACE, skip_all)]
-    async fn add_token(&self, token: &str) -> Result<(), BannedTokenStoreError> {
+    async fn add_token(&self, token: &str) -> BannedTokenStoreResult<()> {
         let ttl = u64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT);
         let key = token_key(token);
         let mut connection = self.connection.write().await;
@@ -48,7 +49,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
     }
 
     #[tracing::instrument(name = "CheckBannedTokenInCache", level = Level::TRACE, skip_all)]
-    async fn is_token_banned(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
+    async fn is_token_banned(&self, token: &str) -> BannedTokenStoreResult<bool> {
         let key = token_key(token);
         let mut connection = self.connection.write().await;
         connection
@@ -57,7 +58,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
     }
 
     #[tracing::instrument(name = "RemoveBannedTokenFromCache", level = Level::TRACE, skip_all)]
-    async fn remove_token(&self, token: &str) -> Result<(), BannedTokenStoreError> {
+    async fn remove_token(&self, token: &str) -> BannedTokenStoreResult<()> {
         let key = token_key(token);
         let mut connection = self.connection.write().await;
         connection

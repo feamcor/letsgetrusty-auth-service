@@ -4,6 +4,7 @@ use crate::domain::LoginAttemptId;
 use crate::domain::TwoFactorAuthCode;
 use crate::services::TwoFactorAuthCodeStore;
 use crate::services::TwoFactorAuthCodeStoreError;
+use crate::services::TwoFactorAuthCodeStoreResult;
 use redis::Commands;
 use redis::SetExpiry;
 use redis::SetOptions;
@@ -41,26 +42,22 @@ impl TwoFactorAuthCodeStore for RedisTwoFactorAuthCodeStore {
         email: Email,
         login_attempt_id: LoginAttemptId,
         code: TwoFactorAuthCode,
-    ) -> Result<(), TwoFactorAuthCodeStoreError> {
+    ) -> TwoFactorAuthCodeStoreResult<()> {
         let ttl = u64::from(consts::AUTH_SERVICE_2FA_TTL_SECONDS_DEFAULT);
         let key = get_key(&email);
-        let tuple = TwoFactorAuthTuple(
-            login_attempt_id.as_ref().to_string(),
-            code.as_ref().to_string(),
-        );
-        let serialized = serde_json::to_string(&tuple)
-            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
+        let tuple = TwoFactorAuthTuple(login_attempt_id.as_ref().to_string(), code.as_ref().to_string());
+        let serialized =
+            serde_json::to_string(&tuple).map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
         let mut connection = self.connection.write().await;
         let options = SetOptions::default().with_expiration(SetExpiry::EX(ttl));
-        let result: redis::RedisResult<Option<String>> =
-            connection.set_options(key, serialized, options);
+        let result: redis::RedisResult<Option<String>> = connection.set_options(key, serialized, options);
         match result {
             Ok(_) => Ok(()),
             Err(error) => Err(TwoFactorAuthCodeStoreError::UnexpectedError(error.into())),
         }
     }
 
-    async fn remove_code(&self, email: &Email) -> Result<(), TwoFactorAuthCodeStoreError> {
+    async fn remove_code(&self, email: &Email) -> TwoFactorAuthCodeStoreResult<()> {
         let key = get_key(email);
         let mut connection = self.connection.write().await;
         connection
@@ -68,21 +65,18 @@ impl TwoFactorAuthCodeStore for RedisTwoFactorAuthCodeStore {
             .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))
     }
 
-    async fn get_code(
-        &self,
-        email: &Email,
-    ) -> Result<(LoginAttemptId, TwoFactorAuthCode), TwoFactorAuthCodeStoreError> {
+    async fn get_code(&self, email: &Email) -> TwoFactorAuthCodeStoreResult<(LoginAttemptId, TwoFactorAuthCode)> {
         let key = get_key(email);
         let mut connection = self.connection.write().await;
         let value: String = connection
             .get(key)
             .map_err(|_| TwoFactorAuthCodeStoreError::CodeNotFound)?;
-        let tuple: TwoFactorAuthTuple = serde_json::from_str(&value)
-            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
-        let login_attempt_id = LoginAttemptId::parse(tuple.0)
-            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
-        let code = TwoFactorAuthCode::parse(tuple.1)
-            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
+        let tuple: TwoFactorAuthTuple =
+            serde_json::from_str(&value).map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
+        let login_attempt_id =
+            LoginAttemptId::parse(tuple.0).map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
+        let code =
+            TwoFactorAuthCode::parse(tuple.1).map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
         Ok((login_attempt_id, code))
     }
 }

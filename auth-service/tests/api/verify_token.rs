@@ -45,10 +45,7 @@ async fn should_return_401_if_invalid_token(ctx: &mut TestAppAsyncContext) {
     let request = json!({"token":"string"});
     let response = app.post_verify_token(&request).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        APPLICATION_JSON.as_ref()
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
 }
 
 #[test_context(TestAppAsyncContext)]

@@ -1,5 +1,6 @@
 use crate::app_state::AppState;
 use crate::utils::api_error::ApiError;
+use crate::utils::api_error::ApiResult;
 use crate::utils::auth::validate_token;
 use axum::Json;
 use axum::extract::State;
@@ -14,11 +15,11 @@ pub struct VerifyTokenRequest {
     pub token: String,
 }
 
-#[tracing::instrument(name = "ApiHandlerVerifyToken", skip_all, err(Debug))]
+#[tracing::instrument(name = "ApiHandlerVerifyToken", skip_all)]
 pub async fn verify_token(
     State(state): State<AppState>,
     Json(request): Json<VerifyTokenRequest>,
-) -> Result<impl IntoResponse, ApiError> {
+) -> ApiResult<impl IntoResponse> {
     let config = &state.config;
     validate_token(&request.token, config.inner().jwt_secret.as_ref().unwrap())
         .await
