@@ -1,18 +1,32 @@
+use auth_service::Application;
 use auth_service::app_state::AppState;
-use auth_service::config::{Config, ConfigType, StoreEngine};
-use auth_service::services::{
-    BannedTokenStoreType, EmailClientType, HashmapTwoFactorAuthCodeStore, HashmapUserStore,
-    HashsetBannedTokenStore, MockEmailClient, PostgresUserStore, RedisBannedTokenStore,
-    RedisTwoFactorAuthCodeStore, TwoFactorAuthCodeStoreType, UserStoreType,
-};
-use auth_service::{configure_cache, configure_database, Application};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use auth_service::config::Config;
+use auth_service::config::ConfigType;
+use auth_service::config::StoreEngine;
+use auth_service::configure_cache;
+use auth_service::configure_database;
+use auth_service::services::BannedTokenStoreType;
+use auth_service::services::EmailClientType;
+use auth_service::services::HashmapTwoFactorAuthCodeStore;
+use auth_service::services::HashmapUserStore;
+use auth_service::services::HashsetBannedTokenStore;
+use auth_service::services::MockEmailClient;
+use auth_service::services::PostgresUserStore;
+use auth_service::services::RedisBannedTokenStore;
+use auth_service::services::RedisTwoFactorAuthCodeStore;
+use auth_service::services::TwoFactorAuthCodeStoreType;
+use auth_service::services::UserStoreType;
+use auth_service::utils::tracing::init_tracing;
+use std::net::IpAddr;
+use std::net::Ipv4Addr;
+use std::net::SocketAddr;
 use tokio::sync::RwLock;
 use tracing::info;
-use auth_service::utils::tracing::init_tracing;
 
 #[tokio::main]
 async fn main() {
+    color_eyre::install().expect("Failed to install color_eyre");
+
     let config = Config::init_from_env_and_cli();
     init_tracing(&config.log);
     let config_type = ConfigType::new(config);

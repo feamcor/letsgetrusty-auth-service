@@ -1,18 +1,33 @@
+use auth_service::Application;
 use auth_service::app_state::AppState;
-use auth_service::config::{Config, ConfigType, StoreEngine};
-use auth_service::services::{
-    BannedTokenStoreType, EmailClientType, HashmapTwoFactorAuthCodeStore, HashmapUserStore,
-    HashsetBannedTokenStore, MockEmailClient, PostgresUserStore, RedisBannedTokenStore,
-    RedisTwoFactorAuthCodeStore, TwoFactorAuthCodeStoreType, UserStoreType,
-};
-use auth_service::{configure_cache, Application};
+use auth_service::config::Config;
+use auth_service::config::ConfigType;
+use auth_service::config::StoreEngine;
+use auth_service::configure_cache;
+use auth_service::services::BannedTokenStoreType;
+use auth_service::services::EmailClientType;
+use auth_service::services::HashmapTwoFactorAuthCodeStore;
+use auth_service::services::HashmapUserStore;
+use auth_service::services::HashsetBannedTokenStore;
+use auth_service::services::MockEmailClient;
+use auth_service::services::PostgresUserStore;
+use auth_service::services::RedisBannedTokenStore;
+use auth_service::services::RedisTwoFactorAuthCodeStore;
+use auth_service::services::TwoFactorAuthCodeStoreType;
+use auth_service::services::UserStoreType;
 use axum::http::Uri;
+use reqwest::Client;
+use reqwest::Response;
 use reqwest::cookie::Jar;
-use reqwest::{Client, Response};
 use serde::Serialize;
-use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
-use sqlx::{Connection, Executor, PgConnection, PgPool};
-use std::net::{Ipv4Addr, SocketAddr};
+use sqlx::Connection;
+use sqlx::Executor;
+use sqlx::PgConnection;
+use sqlx::PgPool;
+use sqlx::postgres::PgConnectOptions;
+use sqlx::postgres::PgPoolOptions;
+use std::net::Ipv4Addr;
+use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use test_context::AsyncTestContext;
@@ -57,7 +72,9 @@ impl TestApp {
             }
         };
         let two_factor_auth_code_store_type = match config.store_engine {
-            StoreEngine::Ephemeral => TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default()),
+            StoreEngine::Ephemeral => {
+                TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default())
+            }
             StoreEngine::Server => {
                 let connection =
                     configure_cache(&config.cache_url()).expect("Failed to configure cache");

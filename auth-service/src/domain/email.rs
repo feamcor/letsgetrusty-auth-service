@@ -1,4 +1,5 @@
-use email_address::{EmailAddress, Options};
+use email_address::EmailAddress;
+use email_address::Options;
 use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
@@ -37,8 +38,8 @@ impl Display for Email {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fake::faker::internet::en::SafeEmail;
     use fake::Fake;
+    use fake::faker::internet::en::SafeEmail;
 
     #[test]
     fn should_parse_valid_email() {

@@ -1,9 +1,16 @@
 use crate::domain::Email;
-use axum_extra::extract::cookie::{Cookie, SameSite};
+use axum_extra::extract::cookie::Cookie;
+use axum_extra::extract::cookie::SameSite;
 use chrono::Utc;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
-use secrecy::{ExposeSecret, SecretString};
-use serde::{Deserialize, Serialize};
+use jsonwebtoken::DecodingKey;
+use jsonwebtoken::EncodingKey;
+use jsonwebtoken::Validation;
+use jsonwebtoken::decode;
+use jsonwebtoken::encode;
+use secrecy::ExposeSecret;
+use secrecy::SecretString;
+use serde::Deserialize;
+use serde::Serialize;
 
 pub const JWT_COOKIE_NAME: &str = "jwt";
 
@@ -87,9 +94,10 @@ pub struct Claims {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{consts, secret_from_environment};
-    use fake::faker::internet::en::SafeEmail;
+    use crate::config::consts;
+    use crate::config::secret_from_environment;
     use fake::Fake;
+    use fake::faker::internet::en::SafeEmail;
 
     #[tokio::test]
     async fn test_generate_auth_cookie() {

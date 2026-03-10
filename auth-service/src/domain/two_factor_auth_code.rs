@@ -1,5 +1,6 @@
 use rand::RngExt;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use std::fmt::Display;
 
 const TWO_FACTOR_AUTH_CODE_LENGTH: usize = 6;

@@ -1,4 +1,5 @@
-use crate::services::{BannedTokenStore, BannedTokenStoreError};
+use crate::services::BannedTokenStore;
+use crate::services::BannedTokenStoreError;
 use std::collections::HashSet;
 use tokio::sync::RwLock;
 

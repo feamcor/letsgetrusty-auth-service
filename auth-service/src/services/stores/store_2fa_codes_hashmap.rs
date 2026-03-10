@@ -1,5 +1,8 @@
-use crate::domain::{Email, LoginAttemptId, TwoFactorAuthCode};
-use crate::services::{TwoFactorAuthCodeStore, TwoFactorAuthCodeStoreError};
+use crate::domain::Email;
+use crate::domain::LoginAttemptId;
+use crate::domain::TwoFactorAuthCode;
+use crate::services::TwoFactorAuthCodeStore;
+use crate::services::TwoFactorAuthCodeStoreError;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
@@ -42,8 +45,8 @@ impl TwoFactorAuthCodeStore for HashmapTwoFactorAuthCodeStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fake::faker::internet::en::SafeEmail;
     use fake::Fake;
+    use fake::faker::internet::en::SafeEmail;
 
     #[tokio::test]
     async fn test_add_get_and_remove_code() {
@@ -65,6 +68,9 @@ mod tests {
         assert!(result.is_ok());
 
         let result = store.get_code(&email).await;
-        assert!(matches!(result, Err(TwoFactorAuthCodeStoreError::CodeNotFound)));
+        assert!(matches!(
+            result,
+            Err(TwoFactorAuthCodeStoreError::CodeNotFound)
+        ));
     }
 }

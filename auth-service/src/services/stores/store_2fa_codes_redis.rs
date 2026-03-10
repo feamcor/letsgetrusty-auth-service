@@ -1,11 +1,16 @@
 use crate::config::consts;
-use crate::domain::{Email, LoginAttemptId, TwoFactorAuthCode};
-use crate::services::{TwoFactorAuthCodeStore, TwoFactorAuthCodeStoreError};
-use redis::{Commands, SetExpiry, SetOptions};
-use serde::{Deserialize, Serialize};
+use crate::domain::Email;
+use crate::domain::LoginAttemptId;
+use crate::domain::TwoFactorAuthCode;
+use crate::services::TwoFactorAuthCodeStore;
+use crate::services::TwoFactorAuthCodeStoreError;
+use redis::Commands;
+use redis::SetExpiry;
+use redis::SetOptions;
+use serde::Deserialize;
+use serde::Serialize;
 use std::fmt::Debug;
 use tokio::sync::RwLock;
-
 
 #[allow(unused_imports)]
 use tracing::Level;

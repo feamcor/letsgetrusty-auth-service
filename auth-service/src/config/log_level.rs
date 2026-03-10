@@ -1,6 +1,7 @@
 use clap::ValueEnum;
 use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 #[derive(ValueEnum, Clone, Debug)]
 #[value(rename_all = "kebab-case")]
@@ -33,5 +34,5 @@ impl From<&LogLevel> for tracing::Level {
 impl From<&LogLevel> for tracing::metadata::LevelFilter {
     fn from(log_level: &LogLevel) -> Self {
         tracing::Level::from(log_level).into()
-    }   
+    }
 }

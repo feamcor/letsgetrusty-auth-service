@@ -1,7 +1,8 @@
-use crate::helpers::{TestApp, TestAppAsyncContext};
+use crate::helpers::TestApp;
+use crate::helpers::TestAppAsyncContext;
 use mime::TEXT_HTML;
-use reqwest::header::CONTENT_TYPE;
 use reqwest::StatusCode;
+use reqwest::header::CONTENT_TYPE;
 use test_context::test_context;
 
 #[test_context(TestAppAsyncContext)]

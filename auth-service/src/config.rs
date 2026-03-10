@@ -10,13 +10,18 @@ use clap::ArgGroup;
 use clap::Parser;
 use clap::ValueEnum;
 use dotenvy::dotenv_override;
-use fmt::{Display, Formatter};
-use secrecy::{ExposeSecret, SecretString};
+use fmt::Display;
+use fmt::Formatter;
+use secrecy::ExposeSecret;
+use secrecy::SecretString;
 use std::env;
 use std::fmt;
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
 use std::sync::Arc;
-use tracing::{error, info, warn};
+use tracing::error;
+use tracing::info;
+use tracing::warn;
 
 #[allow(unused_imports)]
 use tracing::Level;
@@ -191,7 +196,10 @@ impl Display for Config {
             .field("log", &self.log)
             .field("port", &self.port)
             .field("store_engine", &self.store_engine)
-            .field("two_factor_auth_ttl_seconds", &self.two_factor_auth_ttl_seconds)
+            .field(
+                "two_factor_auth_ttl_seconds",
+                &self.two_factor_auth_ttl_seconds,
+            )
             .finish()
     }
 }

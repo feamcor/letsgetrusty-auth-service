@@ -3,7 +3,9 @@ use axum::body::Body;
 use axum::extract::Request;
 use axum::response::Response;
 use std::time::Duration;
-use tracing::{info, Level, Span};
+use tracing::Level;
+use tracing::Span;
+use tracing::info;
 
 pub fn init_tracing(log_level: &LogLevel) {
     tracing_subscriber::fmt().with_max_level(log_level).init();

@@ -1,12 +1,12 @@
 use crate::app_state::AppState;
 use crate::utils::api_error::ApiError;
 use crate::utils::auth::JWT_COOKIE_NAME;
-use crate::utils::auth::{create_auth_cookie, validate_token};
+use crate::utils::auth::create_auth_cookie;
+use crate::utils::auth::validate_token;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum_extra::extract::CookieJar;
-
 
 #[tracing::instrument(name = "ApiHandlerLogout", skip_all, err(Debug))]
 pub async fn logout(

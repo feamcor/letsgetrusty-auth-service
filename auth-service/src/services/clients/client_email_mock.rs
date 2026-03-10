@@ -1,6 +1,7 @@
-use tracing::info;
 use crate::domain::Email;
-use crate::services::{EmailClient, EmailClientError};
+use crate::services::EmailClient;
+use crate::services::EmailClientError;
+use tracing::info;
 
 #[derive(Debug, Clone)]
 pub struct MockEmailClient;

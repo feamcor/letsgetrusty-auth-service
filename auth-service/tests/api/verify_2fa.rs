@@ -1,11 +1,16 @@
-use crate::helpers::{TestApp, TestAppAsyncContext};
-use auth_service::domain::{Email, LoginAttemptId, TwoFactorAuthCode, SAFE_PASSWORD_LENGTH_RANGE};
+use crate::helpers::TestApp;
+use crate::helpers::TestAppAsyncContext;
+use auth_service::domain::Email;
+use auth_service::domain::LoginAttemptId;
+use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
+use auth_service::domain::TwoFactorAuthCode;
 use auth_service::routes::TwoFactorAuthResponse;
-use fake::faker::internet::en::{DomainSuffix, SafeEmail};
 use fake::Fake;
+use fake::faker::internet::en::DomainSuffix;
+use fake::faker::internet::en::SafeEmail;
 use mime::APPLICATION_JSON;
-use reqwest::header::CONTENT_TYPE;
 use reqwest::StatusCode;
+use reqwest::header::CONTENT_TYPE;
 use serde_json::json;
 use test_context::test_context;
 

@@ -1,4 +1,7 @@
-use crate::domain::{Email, EmailError, HashedPassword, PasswordError};
+use crate::domain::Email;
+use crate::domain::EmailError;
+use crate::domain::HashedPassword;
+use crate::domain::PasswordError;
 
 #[derive(Debug, Clone)]
 pub struct User {
@@ -38,8 +41,11 @@ impl User {
 mod tests {
     use super::*;
     use crate::domain::SAFE_PASSWORD_LENGTH_RANGE;
-    use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
-    use fake::{rand, Fake};
+    use fake::Fake;
+    use fake::faker::internet::en::DomainSuffix;
+    use fake::faker::internet::en::Password;
+    use fake::faker::internet::en::SafeEmail;
+    use fake::rand;
 
     #[tokio::test]
     async fn should_return_ok_for_valid_input() {

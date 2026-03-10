@@ -1,10 +1,17 @@
-use crate::domain::{EmailError, LoginAttemptIdError, TwoFactorAuthCodeError, UserError};
-use crate::services::{EmailClientError, TwoFactorAuthCodeStoreError, UserStoreError};
+use crate::domain::EmailError;
+use crate::domain::LoginAttemptIdError;
+use crate::domain::TwoFactorAuthCodeError;
+use crate::domain::UserError;
+use crate::services::EmailClientError;
+use crate::services::TwoFactorAuthCodeStoreError;
+use crate::services::UserStoreError;
 use crate::utils::auth::GenerateTokenError;
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
 use axum::Json;
-use serde::{Deserialize, Serialize};
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use axum::response::Response;
+use serde::Deserialize;
+use serde::Serialize;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ApiError {

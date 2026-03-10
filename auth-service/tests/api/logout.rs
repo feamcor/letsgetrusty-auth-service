@@ -1,11 +1,13 @@
-use crate::helpers::{TestApp, TestAppAsyncContext};
+use crate::helpers::TestApp;
+use crate::helpers::TestAppAsyncContext;
 use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
 use auth_service::utils::auth::JWT_COOKIE_NAME;
-use fake::faker::internet::en::SafeEmail;
 use fake::Fake;
+use fake::faker::internet::en::SafeEmail;
 use mime::APPLICATION_JSON;
+use reqwest::StatusCode;
+use reqwest::Url;
 use reqwest::header::CONTENT_TYPE;
-use reqwest::{StatusCode, Url};
 use serde_json::json;
 use test_context::test_context;
 
@@ -88,9 +90,7 @@ async fn should_return_401_if_invalid_token(ctx: &mut TestAppAsyncContext) {
     let app = TestApp::new(ctx.db_name.as_str()).await;
     ctx.db_url = app.db_url.clone();
     app.cookie_jar.add_cookie_str(
-        &format!(
-            "{JWT_COOKIE_NAME}=invalid; HttpOnly; SameSite=Lax; Secure; Path=/"
-        ),
+        &format!("{JWT_COOKIE_NAME}=invalid; HttpOnly; SameSite=Lax; Secure; Path=/"),
         &Url::parse("http://127.0.0.1").expect("Failed to parse URL"),
     );
     let response = app.post_logout().await;

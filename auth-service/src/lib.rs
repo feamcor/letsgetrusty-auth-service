@@ -1,14 +1,18 @@
 use crate::app_state::AppState;
 use axum::http::Method;
-use axum::routing::{get, post};
+use axum::routing::get;
+use axum::routing::post;
 use axum::serve::Serve;
 use std::error::Error;
 use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
 use tower_http::cors::CorsLayer;
-use tower_http::services::{ServeDir, ServeFile};
+use tower_http::services::ServeDir;
+use tower_http::services::ServeFile;
 use tower_http::trace::TraceLayer;
-use tracing::{info, warn, Level};
+use tracing::Level;
+use tracing::info;
+use tracing::warn;
 
 pub mod app_state;
 pub mod config;
@@ -87,7 +91,8 @@ async fn shutdown_signal(shutdown_token: CancellationToken) {
 
     #[cfg(unix)]
     let terminate = async {
-        use tokio::signal::unix::{signal, SignalKind};
+        use tokio::signal::unix::SignalKind;
+        use tokio::signal::unix::signal;
         let mut sigterm =
             signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
         sigterm.recv().await;

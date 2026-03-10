@@ -1,4 +1,6 @@
-use crate::domain::{Email, LoginAttemptId, TwoFactorAuthCode};
+use crate::domain::Email;
+use crate::domain::LoginAttemptId;
+use crate::domain::TwoFactorAuthCode;
 use std::sync::Arc;
 
 #[derive(thiserror::Error, Debug)]

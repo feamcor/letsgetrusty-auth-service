@@ -1,9 +1,12 @@
 use crate::config::consts;
-use crate::services::{BannedTokenStore, BannedTokenStoreError};
-use redis::{Commands, ExistenceCheck, SetExpiry, SetOptions};
+use crate::services::BannedTokenStore;
+use crate::services::BannedTokenStoreError;
+use redis::Commands;
+use redis::ExistenceCheck;
+use redis::SetExpiry;
+use redis::SetOptions;
 use std::fmt::Debug;
 use tokio::sync::RwLock;
-
 
 #[allow(unused_imports)]
 use tracing::Level;

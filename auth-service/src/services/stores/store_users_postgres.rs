@@ -1,5 +1,8 @@
-use crate::domain::{Email, HashedPassword, User};
-use crate::services::{UserStore, UserStoreError};
+use crate::domain::Email;
+use crate::domain::HashedPassword;
+use crate::domain::User;
+use crate::services::UserStore;
+use crate::services::UserStoreError;
 use sqlx::PgPool;
 use tracing::error;
 

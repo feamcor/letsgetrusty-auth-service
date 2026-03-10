@@ -1,6 +1,7 @@
 use clap::ValueEnum;
 use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 #[derive(ValueEnum, Clone, Debug)]
 #[value(rename_all = "kebab-case")]

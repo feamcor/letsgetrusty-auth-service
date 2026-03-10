@@ -1,5 +1,6 @@
 use crate::domain::User;
-use crate::services::{UserStore, UserStoreError};
+use crate::services::UserStore;
+use crate::services::UserStoreError;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 

@@ -1,12 +1,16 @@
-use crate::helpers::{TestApp, TestAppAsyncContext};
+use crate::helpers::TestApp;
+use crate::helpers::TestAppAsyncContext;
 use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
 use auth_service::routes::SignupResponse;
-use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
 use fake::Fake;
+use fake::faker::internet::en::DomainSuffix;
+use fake::faker::internet::en::Password;
+use fake::faker::internet::en::SafeEmail;
 use mime::APPLICATION_JSON;
-use reqwest::header::CONTENT_TYPE;
 use reqwest::StatusCode;
-use serde_json::{json, Value};
+use reqwest::header::CONTENT_TYPE;
+use serde_json::Value;
+use serde_json::json;
 use test_context::test_context;
 
 #[test_context(TestAppAsyncContext)]

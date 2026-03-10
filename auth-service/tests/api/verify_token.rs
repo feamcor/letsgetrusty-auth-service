@@ -1,11 +1,12 @@
-use crate::helpers::{TestApp, TestAppAsyncContext};
+use crate::helpers::TestApp;
+use crate::helpers::TestAppAsyncContext;
 use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
 use auth_service::utils::auth::JWT_COOKIE_NAME;
-use fake::faker::internet::en::SafeEmail;
 use fake::Fake;
+use fake::faker::internet::en::SafeEmail;
 use mime::APPLICATION_JSON;
-use reqwest::header::CONTENT_TYPE;
 use reqwest::StatusCode;
+use reqwest::header::CONTENT_TYPE;
 use serde_json::json;
 use test_context::test_context;
 
