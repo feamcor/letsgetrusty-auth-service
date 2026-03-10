@@ -1,10 +1,18 @@
-use argon2::password_hash::rand_core::OsRng;
+use argon2::Algorithm;
+use argon2::Argon2;
+use argon2::Params;
+use argon2::PasswordHash;
+use argon2::PasswordHasher;
+use argon2::PasswordVerifier;
+use argon2::Version;
 use argon2::password_hash::SaltString;
-use argon2::{Algorithm, Argon2, Params, PasswordHash, PasswordHasher, PasswordVerifier, Version};
-use secrecy::{ExposeSecret, SecretString};
+use argon2::password_hash::rand_core::OsRng;
+use secrecy::ExposeSecret;
+use secrecy::SecretString;
 use tokio::task::spawn_blocking;
 use tracing::error;
-use zxcvbn::{zxcvbn, Score};
+use zxcvbn::Score;
+use zxcvbn::zxcvbn;
 
 #[allow(unused_imports)]
 use tracing::Level;
@@ -71,11 +79,14 @@ impl HashedPassword {
 
     #[tracing::instrument(name = "RawPasswordVerification", level = Level::TRACE, skip_all)]
     pub async fn verify_raw_password(&self, candidate: &str) -> Result<(), PasswordError> {
+        let current_span = tracing::Span::current();
         let candidate = candidate.to_owned();
         let secret = self.0.expose_secret().to_owned();
         let task = spawn_blocking(move || {
-            let expected_hash = PasswordHash::new(&secret)?;
-            Argon2::default().verify_password(candidate.as_bytes(), &expected_hash)
+            current_span.in_scope(|| {
+                let expected_hash = PasswordHash::new(&secret)?;
+                Argon2::default().verify_password(candidate.as_bytes(), &expected_hash)
+            })
         });
         match task.await {
             Ok(result) => match result {
@@ -103,16 +114,19 @@ impl AsRef<str> for HashedPassword {
 
 #[tracing::instrument(name = "PasswordHashComputation", level = Level::TRACE, skip_all)]
 async fn compute_password_hash(password: &str) -> Result<String, PasswordError> {
+    let current_span = tracing::Span::current();
     let password = password.to_owned();
     let task = spawn_blocking(move || -> Result<String, PasswordError> {
-        let salt: SaltString = SaltString::generate(&mut OsRng);
-        let params =
-            Params::new(15000, 2, 1, None).map_err(|e| PasswordError::Unexpected(e.to_string()))?;
-        let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-        let hash = argon2
-            .hash_password(password.as_bytes(), &salt)
-            .map_err(|e| PasswordError::Unexpected(e.to_string()))?;
-        Ok(hash.to_string())
+        current_span.in_scope(|| {
+            let salt: SaltString = SaltString::generate(&mut OsRng);
+            let params = Params::new(15000, 2, 1, None)
+                .map_err(|e| PasswordError::Unexpected(e.to_string()))?;
+            let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+            let hash = argon2
+                .hash_password(password.as_bytes(), &salt)
+                .map_err(|e| PasswordError::Unexpected(e.to_string()))?;
+            Ok(hash.to_string())
+        })
     });
     task.await.unwrap_or_else(|error| {
         error!("{}", error);
@@ -123,8 +137,8 @@ async fn compute_password_hash(password: &str) -> Result<String, PasswordError> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fake::faker::internet::en::SafeEmail;
     use fake::Fake;
+    use fake::faker::internet::en::SafeEmail;
     use quickcheck::Gen;
     use quickcheck_macros::quickcheck;
 
