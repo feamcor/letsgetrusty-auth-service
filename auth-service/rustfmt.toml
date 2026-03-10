@@ -1,3 +1,4 @@
 imports_indent = "Block"
 imports_layout = "Vertical"
 imports_granularity = "Item"
+max_width = 100
