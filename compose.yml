@@ -39,7 +39,8 @@ services:
       POSTGRES_PASSWORD: "${AUTH_SERVICE_DB_PASSWORD}"
       POSTGRES_USER: "${AUTH_SERVICE_DB_USERNAME:-administrator}"
     ports:
-      - "${AUTH_SERVICE_DB_PORT:-5432}:5432"
+      - "127.0.0.1:${AUTH_SERVICE_DB_PORT:-5432}:5432"
+      - "[::1]:${AUTH_SERVICE_DB_PORT:-5432}:5432"
     volumes:
       - db_data:/var/lib/postgresql
     healthcheck:
@@ -51,7 +52,8 @@ services:
     image: redis:latest
     restart: always
     ports:
-      - "${AUTH_SERVICE_CACHE_PORT:-6379}:6379"
+      - "127.0.0.1:${AUTH_SERVICE_CACHE_PORT:-6379}:6379"
+      - "[::1]:${AUTH_SERVICE_CACHE_PORT:-6379}:6379"
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
