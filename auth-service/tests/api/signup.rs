@@ -37,7 +37,10 @@ async fn should_return_201_if_valid_input(ctx: &mut TestAppAsyncContext) {
         let response = app.post_signup(&request).await;
         assert_eq!(response.status(), StatusCode::CREATED);
         assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
-        assert_eq!(response.json::<SignupResponse>().await.unwrap(), expected);
+        assert_eq!(
+            response.json::<SignupResponse>().await.unwrap().message,
+            expected.message
+        );
     }
 }
 

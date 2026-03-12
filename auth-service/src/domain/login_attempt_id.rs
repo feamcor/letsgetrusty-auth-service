@@ -1,30 +1,36 @@
-use serde::Deserialize;
-use serde::Serialize;
-use uuid::Uuid;
+use crate::domain::Secret;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct LoginAttemptId(String);
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct LoginAttemptId(Secret);
 
 #[derive(thiserror::Error, Debug)]
-#[error("Invalid Login Attempt Id: {0}")]
-pub struct LoginAttemptIdError(String);
+#[error("Invalid Login Attempt Id")]
+pub struct LoginAttemptIdError;
 
 impl LoginAttemptId {
-    pub fn parse(id: String) -> Result<Self, LoginAttemptIdError> {
-        Uuid::parse_str(&id)
-            .map(|_| Self(id))
-            .map_err(|e| LoginAttemptIdError(e.to_string()))
+    pub fn parse(id: &Secret) -> Result<Self, LoginAttemptIdError> {
+        let raw_id = id.expose();
+        uuid::Uuid::parse_str(raw_id)
+            .map(|_| Self(id.to_owned()))
+            .map_err(|_| LoginAttemptIdError)
+    }
+
+    #[must_use]
+    pub fn as_secret(&self) -> &Secret {
+        &self.0
     }
 }
 
 impl Default for LoginAttemptId {
     fn default() -> Self {
-        Self(Uuid::now_v7().to_string())
+        Self(uuid::Uuid::now_v7().to_string().into())
     }
 }
 
-impl AsRef<str> for LoginAttemptId {
-    fn as_ref(&self) -> &str {
-        &self.0
+impl PartialEq for LoginAttemptId {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_secret() == other.as_secret()
     }
 }
+
+impl Eq for LoginAttemptId {}

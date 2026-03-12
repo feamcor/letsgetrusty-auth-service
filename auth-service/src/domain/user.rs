@@ -1,7 +1,5 @@
 use crate::domain::Email;
-use crate::domain::EmailError;
 use crate::domain::HashedPassword;
-use crate::domain::PasswordError;
 
 #[derive(Debug, Clone)]
 pub struct User {
@@ -10,26 +8,14 @@ pub struct User {
     pub requires_2fa: bool,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum UserError {
-    #[error(transparent)]
-    InvalidEmail(#[from] EmailError),
-    #[error("Invalid password: {0}")]
-    InvalidPassword(PasswordError),
-}
-
 impl User {
-    pub async fn try_new(email: &str, password: &str, requires_2fa: bool) -> Result<Self, UserError> {
-        let email = Email::parse(email).map_err(UserError::InvalidEmail)?;
-        let password = match HashedPassword::parse(password, email.as_ref()).await {
-            Ok(password) => password,
-            Err(error) => return Err(UserError::InvalidPassword(error)),
-        };
-        Ok(Self {
-            email,
-            password,
+    #[must_use]
+    pub fn new(email: &Email, password: &HashedPassword, requires_2fa: bool) -> Self {
+        Self {
+            email: email.clone(),
+            password: password.clone(),
             requires_2fa,
-        })
+        }
     }
 }
 
@@ -39,52 +25,48 @@ mod tests {
     use crate::domain::SAFE_PASSWORD_LENGTH_RANGE;
     use fake::Fake;
     use fake::faker::internet::en::DomainSuffix;
-    use fake::faker::internet::en::Password;
     use fake::faker::internet::en::SafeEmail;
     use fake::rand;
 
     #[tokio::test]
     async fn should_return_ok_for_valid_input() {
-        let email: String = SafeEmail().fake();
-        let password: String = SAFE_PASSWORD_LENGTH_RANGE.fake();
+        let raw_email = SafeEmail().fake::<String>().into();
+        let email = Email::parse(&raw_email).unwrap();
+        let raw_password = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().into();
+        let password = HashedPassword::parse(&raw_password, &email).await.unwrap();
         let requires_2fa = rand::random();
-        let result = User::try_new(&email, &password, requires_2fa).await;
-        assert!(result.is_ok(), "Failed for email: {email} and password: {password}");
+        let _ = User::new(&email, &password, requires_2fa);
     }
 
     #[tokio::test]
     async fn should_return_error_for_empty_email() {
-        let email = "";
-        let password: String = Password(16..64).fake();
-        let requires_2fa = rand::random();
-        let result = User::try_new(email, &password, requires_2fa).await;
-        assert!(matches!(result, Err(UserError::InvalidEmail(_))));
+        let raw_email = String::new().into();
+        let email = Email::parse(&raw_email);
+        assert!(email.is_err());
     }
 
     #[tokio::test]
     async fn should_return_error_for_empty_password() {
-        let email: String = SafeEmail().fake();
-        let password = "";
-        let requires_2fa = rand::random();
-        let result = User::try_new(&email, password, requires_2fa).await;
-        assert!(matches!(result, Err(UserError::InvalidPassword(_))));
+        let raw_email = SafeEmail().fake::<String>().into();
+        let email = Email::parse(&raw_email).unwrap();
+        let raw_password = String::new().into();
+        let password = HashedPassword::parse(&raw_password, &email).await;
+        assert!(password.is_err());
     }
 
     #[tokio::test]
     async fn should_return_invalid_email_error() {
-        let email: String = DomainSuffix().fake();
-        let password: String = SAFE_PASSWORD_LENGTH_RANGE.fake();
-        let requires_2fa = rand::random();
-        let result = User::try_new(&email, &password, requires_2fa).await;
-        assert!(matches!(result, Err(UserError::InvalidEmail(_))));
+        let raw_email = DomainSuffix().fake::<String>().into();
+        let email = Email::parse(&raw_email);
+        assert!(email.is_err());
     }
 
     #[tokio::test]
     async fn should_return_invalid_password_error() {
-        let email: String = SafeEmail().fake();
-        let password: String = Password(1..7).fake();
-        let requires_2fa = rand::random();
-        let result = User::try_new(&email, &password, requires_2fa).await;
-        assert!(matches!(result, Err(UserError::InvalidPassword(_))));
+        let raw_email = SafeEmail().fake::<String>().into();
+        let email = Email::parse(&raw_email).unwrap();
+        let raw_password = (1..7).fake::<String>().into();
+        let password = HashedPassword::parse(&raw_password, &email).await;
+        assert!(password.is_err());
     }
 }

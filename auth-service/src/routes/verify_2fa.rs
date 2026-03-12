@@ -1,6 +1,7 @@
 use crate::app_state::AppState;
 use crate::domain::Email;
 use crate::domain::LoginAttemptId;
+use crate::domain::Secret;
 use crate::domain::TwoFactorAuthCode;
 use crate::services::TwoFactorAuthCodeStoreError;
 use crate::utils::api_error::ApiError;
@@ -11,16 +12,14 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum_extra::extract::CookieJar;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Verify2FARequest {
-    pub email: String,
-    pub login_attempt_id: String,
+    pub email: Secret,
+    pub login_attempt_id: Secret,
     #[serde(rename = "2FACode")]
-    pub two_factor_auth_code: String,
+    pub two_factor_auth_code: Secret,
 }
 
 #[tracing::instrument(name = "ApiHandlerVerify2FA", skip_all)]
@@ -30,8 +29,8 @@ pub async fn verify_2fa(
     Json(request): Json<Verify2FARequest>,
 ) -> ApiResult<(CookieJar, impl IntoResponse)> {
     let email = Email::parse(&request.email)?;
-    let attempt_id = LoginAttemptId::parse(request.login_attempt_id)?;
-    let auth_code = TwoFactorAuthCode::parse(request.two_factor_auth_code)?;
+    let attempt_id = LoginAttemptId::parse(&request.login_attempt_id)?;
+    let auth_code = TwoFactorAuthCode::parse(&request.two_factor_auth_code)?;
     let auth_code_store = state.two_factor_auth_code_store.inner();
     let (stored_attempt_id, stored_auth_code) = match auth_code_store.get_code(&email).await {
         Ok(code) => code,
@@ -46,12 +45,14 @@ pub async fn verify_2fa(
         return Err(ApiError::IncorrectCredentials);
     }
     auth_code_store.remove_code(&email).await?;
-    let config = state.config.inner();
-    let cookie = generate_auth_cookie(
-        &email,
-        config.jwt_secret.as_ref().unwrap(),
-        i64::from(config.jwt_ttl_seconds),
-    )?;
+    let config = &state.config.inner();
+    let jwt_secret = config
+        .jwt_secret
+        .clone()
+        .ok_or(ApiError::UnexpectedError(color_eyre::eyre::eyre!(
+            "JWT secret is not set."
+        )))?;
+    let cookie = generate_auth_cookie(&email, &jwt_secret, i64::from(config.jwt_ttl_seconds))?;
     let jar = jar.add(cookie);
     Ok((jar, StatusCode::OK.into_response()))
 }

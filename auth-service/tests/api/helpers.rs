@@ -4,6 +4,7 @@ use auth_service::config::Config;
 use auth_service::config::ConfigType;
 use auth_service::config::StoreEngine;
 use auth_service::configure_cache;
+use auth_service::domain::Secret;
 use auth_service::services::BannedTokenStoreType;
 use auth_service::services::EmailClientType;
 use auth_service::services::HashmapTwoFactorAuthCodeStore;
@@ -19,7 +20,6 @@ use axum::http::Uri;
 use reqwest::Client;
 use reqwest::Response;
 use reqwest::cookie::Jar;
-use serde::Serialize;
 use sqlx::Connection;
 use sqlx::Executor;
 use sqlx::PgConnection;
@@ -40,7 +40,7 @@ pub struct TestApp {
     pub cookie_jar: Arc<Jar>,
     pub banned_token_store: BannedTokenStoreType,
     pub two_factor_auth_code_store: TwoFactorAuthCodeStoreType,
-    pub db_url: Option<String>,
+    pub db_url: Option<Secret>,
 }
 
 impl TestApp {
@@ -125,7 +125,7 @@ impl TestApp {
             .expect("Failed to execute get_root request")
     }
 
-    pub async fn post_signup<S: Serialize>(&self, body: &S) -> Response {
+    pub async fn post_signup<S: serde::Serialize>(&self, body: &S) -> Response {
         let request_url = format!("{}api/signup", &self.base_url);
         self.http_client
             .post(&request_url)
@@ -135,7 +135,7 @@ impl TestApp {
             .expect("Failed to execute post_signup request")
     }
 
-    pub async fn post_login<S: Serialize>(&self, body: &S) -> Response {
+    pub async fn post_login<S: serde::Serialize>(&self, body: &S) -> Response {
         let request_url = format!("{}api/login", &self.base_url);
         self.http_client
             .post(&request_url)
@@ -154,7 +154,7 @@ impl TestApp {
             .expect("Failed to execute post_logout request")
     }
 
-    pub async fn post_verify_2fa<S: Serialize>(&self, body: &S) -> Response {
+    pub async fn post_verify_2fa<S: serde::Serialize>(&self, body: &S) -> Response {
         let request_url = format!("{}api/verify-2fa", &self.base_url);
         self.http_client
             .post(&request_url)
@@ -164,7 +164,7 @@ impl TestApp {
             .expect("Failed to execute post_verify_2fa request")
     }
 
-    pub async fn post_verify_token<S: Serialize>(&self, body: &S) -> Response {
+    pub async fn post_verify_token<S: serde::Serialize>(&self, body: &S) -> Response {
         let request_url = format!("{}api/verify-token", &self.base_url);
         self.http_client
             .post(&request_url)
@@ -177,7 +177,7 @@ impl TestApp {
 
 pub struct TestAppAsyncContext {
     pub db_name: String,
-    pub db_url: Option<String>,
+    pub db_url: Option<Secret>,
 }
 
 impl AsyncTestContext for TestAppAsyncContext {
@@ -195,16 +195,16 @@ impl AsyncTestContext for TestAppAsyncContext {
     }
 }
 
-async fn configure_database_for_testing(real_db_url: &str, test_db_name: &str, test_db_url: &str) -> PgPool {
+async fn configure_database_for_testing(real_db_url: &Secret, test_db_name: &str, test_db_url: &Secret) -> PgPool {
     let pool = PgPoolOptions::new()
-        .connect(real_db_url)
+        .connect(real_db_url.expose())
         .await
         .expect("Failed to connect to test database");
     pool.execute(format!(r#"CREATE DATABASE "{test_db_name}";"#).as_str())
         .await
         .expect("Failed to create test database");
     let pool = PgPoolOptions::new()
-        .connect(test_db_url)
+        .connect(test_db_url.expose())
         .await
         .expect("Failed to create to test database");
     sqlx::migrate!()
@@ -214,8 +214,9 @@ async fn configure_database_for_testing(real_db_url: &str, test_db_name: &str, t
     pool
 }
 
-async fn delete_database(real_db_url: &str, test_db_name: &str) {
-    let options = PgConnectOptions::from_str(real_db_url).expect("Failed to parse the database connection string");
+async fn delete_database(real_db_url: &Secret, test_db_name: &str) {
+    let options =
+        PgConnectOptions::from_str(real_db_url.expose()).expect("Failed to parse the database connection string");
     let mut connection = PgConnection::connect_with(&options)
         .await
         .expect("Failed to connect to the app database");

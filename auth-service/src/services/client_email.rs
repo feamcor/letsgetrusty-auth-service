@@ -1,29 +1,32 @@
 use crate::domain::Email;
-use std::sync::Arc;
 
 #[derive(thiserror::Error, Debug)]
 pub enum EmailClientError {
     #[error(transparent)]
-    UnexpectedError(#[from] anyhow::Error),
+    UnexpectedError(#[from] color_eyre::eyre::Report),
 }
+
+pub type EmailClientResult<T> = Result<T, EmailClientError>;
 
 #[async_trait::async_trait]
 pub trait EmailClient: Send + Sync {
-    async fn send_email(&self, recipient: &Email, subject: &str, content: &str) -> Result<(), EmailClientError>;
+    async fn send_email(&self, recipient: &Email, subject: &str, content: &str) -> EmailClientResult<()>;
 }
 
 #[derive(Clone)]
 pub struct EmailClientType {
-    inner: Arc<dyn EmailClient>,
+    inner: std::sync::Arc<dyn EmailClient>,
 }
 
 impl EmailClientType {
     pub fn new(inner: impl EmailClient + 'static) -> Self {
-        Self { inner: Arc::new(inner) }
+        Self {
+            inner: std::sync::Arc::new(inner),
+        }
     }
 
     #[must_use]
-    pub fn inner(&self) -> Arc<dyn EmailClient> {
+    pub fn inner(&self) -> std::sync::Arc<dyn EmailClient> {
         self.inner.clone()
     }
 }

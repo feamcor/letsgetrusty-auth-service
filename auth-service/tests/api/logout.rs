@@ -1,6 +1,7 @@
 use crate::helpers::TestApp;
 use crate::helpers::TestAppAsyncContext;
 use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
+use auth_service::domain::Token;
 use auth_service::utils::auth::JWT_COOKIE_NAME;
 use fake::Fake;
 use fake::faker::internet::en::SafeEmail;
@@ -35,7 +36,8 @@ async fn should_return_200_if_valid_jwt(ctx: &mut TestAppAsyncContext) {
         .expect("No auth cookie found");
     let response = app.post_logout().await;
     assert_eq!(response.status(), StatusCode::OK);
-    let is_banned = app.banned_token_store.inner().is_token_banned(jwt.value()).await;
+    let token = Token::new(&jwt.value().into());
+    let is_banned = app.banned_token_store.inner().is_token_banned(&token).await;
     assert!(is_banned.unwrap());
 }
 

@@ -1,5 +1,6 @@
 use crate::config::log_level::LogLevel;
 use crate::config::store_engine::StoreEngine;
+use crate::domain::Secret;
 
 pub const APP_SERVICE_PORT: &str = "APP_SERVICE_PORT";
 pub const AUTH_SERVICE_2FA_TTL_SECONDS: &str = "AUTH_SERVICE_2FA_TTL_SECONDS";
@@ -26,14 +27,14 @@ pub const AUTH_SERVICE_CACHE_HOSTNAME_DEFAULT: &str = "localhost";
 pub const AUTH_SERVICE_CACHE_PORT_DEFAULT: u16 = 6379;
 pub const AUTH_SERVICE_DB_DATABASE_DEFAULT: &str = "letsgetrusty";
 pub const AUTH_SERVICE_DB_HOSTNAME_DEFAULT: &str = "localhost";
-pub const AUTH_SERVICE_DB_PASSWORD_DEFAULT: Option<secrecy::SecretString> = None;
+pub const AUTH_SERVICE_DB_PASSWORD_DEFAULT: Option<Secret> = None;
 pub const AUTH_SERVICE_DB_POOL_MAX_SIZE_DEFAULT: u32 = 10;
 pub const AUTH_SERVICE_DB_POOL_MIN_SIZE_DEFAULT: u32 = 1;
 pub const AUTH_SERVICE_DB_PORT_DEFAULT: u16 = 5432;
 pub const AUTH_SERVICE_DB_USERNAME_DEFAULT: &str = "administrator";
 pub const AUTH_SERVICE_HOST_IPV4_DEFAULT: Option<std::net::Ipv4Addr> = Some(std::net::Ipv4Addr::LOCALHOST);
 pub const AUTH_SERVICE_HOST_IPV6_DEFAULT: Option<std::net::Ipv6Addr> = None;
-pub const AUTH_SERVICE_JWT_SECRET_DEFAULT: Option<secrecy::SecretString> = None;
+pub const AUTH_SERVICE_JWT_SECRET_DEFAULT: Option<Secret> = None;
 pub const AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT: u32 = 900; // 15 minutes
 pub const AUTH_SERVICE_LOG_DEFAULT: LogLevel = LogLevel::Info;
 pub const AUTH_SERVICE_PORT_DEFAULT: u16 = 3000;

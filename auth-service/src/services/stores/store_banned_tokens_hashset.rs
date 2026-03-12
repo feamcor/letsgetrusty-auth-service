@@ -1,3 +1,4 @@
+use crate::domain::Token;
 use crate::services::BannedTokenStore;
 use crate::services::BannedTokenStoreError;
 use crate::services::BannedTokenStoreResult;
@@ -11,24 +12,27 @@ pub struct HashsetBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for HashsetBannedTokenStore {
-    async fn add_token(&self, token: &str) -> BannedTokenStoreResult<()> {
+    async fn add_token(&self, token: &Token) -> BannedTokenStoreResult<()> {
+        let token = token.as_secret().expose();
         if self.tokens.read().await.contains(token) {
-            Err(BannedTokenStoreError::TokenAlreadyExists(token.to_string()))
+            Err(BannedTokenStoreError::TokenAlreadyExists)
         } else {
-            self.tokens.write().await.insert(token.to_string());
+            self.tokens.write().await.insert(token.to_owned());
             Ok(())
         }
     }
 
-    async fn is_token_banned(&self, token: &str) -> BannedTokenStoreResult<bool> {
+    async fn is_token_banned(&self, token: &Token) -> BannedTokenStoreResult<bool> {
+        let token = token.as_secret().expose();
         Ok(self.tokens.read().await.contains(token))
     }
 
-    async fn remove_token(&self, token: &str) -> BannedTokenStoreResult<()> {
+    async fn remove_token(&self, token: &Token) -> BannedTokenStoreResult<()> {
+        let token = token.as_secret().expose();
         if self.tokens.write().await.remove(token) {
             Ok(())
         } else {
-            Err(BannedTokenStoreError::TokenNotFound(token.to_string()))
+            Err(BannedTokenStoreError::TokenNotFound)
         }
     }
 }
@@ -40,46 +44,41 @@ mod tests {
     #[tokio::test]
     async fn test_add_banned_token() {
         let store = HashsetBannedTokenStore::default();
-        let token = "test_token";
-
-        assert!(store.add_token(token).await.is_ok());
-        assert!(store.is_token_banned(token).await.unwrap());
-
-        let result = store.add_token(token).await;
+        let token = Token::new(&"test_token".into());
+        assert!(store.add_token(&token).await.is_ok());
+        assert!(store.is_token_banned(&token).await.unwrap());
+        let result = store.add_token(&token).await;
         assert!(result.is_err());
-        match result.unwrap_err() {
-            BannedTokenStoreError::TokenAlreadyExists(t) => assert_eq!(t, token),
-            _ => panic!("Expected TokenAlreadyExists error"),
-        }
+        assert!(match result.unwrap_err() {
+            BannedTokenStoreError::TokenAlreadyExists => true,
+            _ => panic!("expected TokenAlreadyExists error"),
+        });
     }
 
     #[tokio::test]
     async fn test_is_token_banned() {
         let store = HashsetBannedTokenStore::default();
-        let token = "test_token";
-
-        assert!(!store.is_token_banned(token).await.unwrap());
-        store.add_token(token).await.unwrap();
-        assert!(store.is_token_banned(token).await.unwrap());
-        assert!(!store.is_token_banned("other_token").await.unwrap());
+        let token = Token::new(&"test_token".into());
+        assert!(!store.is_token_banned(&token).await.unwrap());
+        store.add_token(&token).await.unwrap();
+        assert!(store.is_token_banned(&token).await.unwrap());
+        let other_token = Token::new(&"other_token".into());
+        assert!(!store.is_token_banned(&other_token).await.unwrap());
     }
 
     #[tokio::test]
     async fn test_remove_banned_token() {
         let store = HashsetBannedTokenStore::default();
-        let token = "test_token";
-
-        store.add_token(token).await.unwrap();
-        assert!(store.is_token_banned(token).await.unwrap());
-
-        assert!(store.remove_token(token).await.is_ok());
-        assert!(!store.is_token_banned(token).await.unwrap());
-
-        let result = store.remove_token(token).await;
+        let token = Token::new(&"test_token".into());
+        store.add_token(&token).await.unwrap();
+        assert!(store.is_token_banned(&token).await.unwrap());
+        assert!(store.remove_token(&token).await.is_ok());
+        assert!(!store.is_token_banned(&token).await.unwrap());
+        let result = store.remove_token(&token).await;
         assert!(result.is_err());
-        match result.unwrap_err() {
-            BannedTokenStoreError::TokenNotFound(t) => assert_eq!(t, token),
+        assert!(match result.unwrap_err() {
+            BannedTokenStoreError::TokenNotFound => true,
             _ => panic!("Expected TokenNotFound error"),
-        }
+        });
     }
 }

@@ -6,7 +6,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow = "1.0.102"
 argon2 = { version = "0.5.3", features = ["std"] }
 async-trait = "0.1.89"
 axum = "0.8.8"
@@ -19,7 +18,7 @@ email_address = "0.2.9"
 jsonwebtoken = { version = "10.3.0", features = ["aws_lc_rs"] }
 rand = "0.10.0"
 redis = { version = "1.0.4", features = ["tokio-comp"]}
-secrecy = "0.10.3"
+secrecy = {  version = "0.10.3", features = ["serde"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "tls-rustls", "macros", "migrate", "postgres"] }

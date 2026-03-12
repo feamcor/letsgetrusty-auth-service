@@ -1,32 +1,28 @@
+use crate::domain::Secret;
 use rand::RngExt;
-use serde::Deserialize;
-use serde::Serialize;
-use std::fmt::Display;
 
 const TWO_FACTOR_AUTH_CODE_LENGTH: usize = 6;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct TwoFactorAuthCode(String);
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct TwoFactorAuthCode(Secret);
 
 #[derive(thiserror::Error, Debug)]
-#[error("Invalid 2FA Code: {0}")]
-pub struct TwoFactorAuthCodeError(String);
+#[error("Invalid 2FA Code")]
+pub struct TwoFactorAuthCodeError;
 
 impl TwoFactorAuthCode {
-    pub fn parse(code: String) -> Result<Self, TwoFactorAuthCodeError> {
-        if code.len() == TWO_FACTOR_AUTH_CODE_LENGTH && code.chars().all(|c| c.is_ascii_digit()) {
-            Ok(Self(code))
+    pub fn parse(code: &Secret) -> Result<Self, TwoFactorAuthCodeError> {
+        let raw_code = code.expose();
+        if raw_code.len() == TWO_FACTOR_AUTH_CODE_LENGTH && raw_code.chars().all(|c| c.is_ascii_digit()) {
+            Ok(Self(code.to_owned()))
         } else {
-            Err(TwoFactorAuthCodeError(format!(
-                "{code} is not a valid {TWO_FACTOR_AUTH_CODE_LENGTH}-digit 2FA code",
-            )))
+            Err(TwoFactorAuthCodeError)
         }
     }
-}
 
-impl Display for TwoFactorAuthCode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "2FA Code: {}", self.0)
+    #[must_use]
+    pub fn as_secret(&self) -> &Secret {
+        &self.0
     }
 }
 
@@ -34,12 +30,16 @@ impl Default for TwoFactorAuthCode {
     fn default() -> Self {
         let mut rng = rand::rng();
         let code: u32 = rng.random_range(0..1_000_000);
-        Self(format!("{code:06}"))
+        let code = format!("{code:06}");
+        let code = code.into();
+        Self(code)
     }
 }
 
-impl AsRef<str> for TwoFactorAuthCode {
-    fn as_ref(&self) -> &str {
-        &self.0
+impl PartialEq for TwoFactorAuthCode {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_secret() == other.as_secret()
     }
 }
+
+impl Eq for TwoFactorAuthCode {}

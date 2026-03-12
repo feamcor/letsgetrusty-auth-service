@@ -1,20 +1,18 @@
 use crate::domain::EmailError;
 use crate::domain::LoginAttemptIdError;
+use crate::domain::PasswordError;
 use crate::domain::TwoFactorAuthCodeError;
-use crate::domain::UserError;
 use crate::services::EmailClientError;
 use crate::services::TwoFactorAuthCodeStoreError;
 use crate::services::UserStoreError;
 use crate::utils::auth::GenerateTokenError;
+use axum::Json;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::response::Response;
-use axum::Json;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ApiError {
-    #[error(transparent)]
-    UserError(#[from] UserError),
     #[error(transparent)]
     UserStoreError(#[from] UserStoreError),
     #[error(transparent)]
@@ -25,6 +23,8 @@ pub enum ApiError {
     TwoFactorAuthCodeStoreError(#[from] TwoFactorAuthCodeStoreError),
     #[error(transparent)]
     EmailError(#[from] EmailError),
+    #[error(transparent)]
+    PasswordError(#[from] PasswordError),
     #[error(transparent)]
     LoginAttemptIdError(#[from] LoginAttemptIdError),
     #[error(transparent)]
@@ -47,11 +47,10 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         log_error_chain(&self);
         let (status, body) = match self {
-            ApiError::UserError(error) => (StatusCode::BAD_REQUEST, Json(ErrorResponse::from(error.to_string()))),
-            ApiError::UserStoreError(
-                error @ (UserStoreError::UserNotFound(_) | UserStoreError::IncorrectCredentials(_)),
-            ) => (StatusCode::UNAUTHORIZED, Json(ErrorResponse::from(error.to_string()))),
-            ApiError::UserStoreError(error @ UserStoreError::UserAlreadyExists(_)) => {
+            ApiError::UserStoreError(error @ (UserStoreError::UserNotFound | UserStoreError::IncorrectCredentials)) => {
+                (StatusCode::UNAUTHORIZED, Json(ErrorResponse::from(error.to_string())))
+            }
+            ApiError::UserStoreError(error @ UserStoreError::UserAlreadyExists) => {
                 (StatusCode::CONFLICT, Json(ErrorResponse::from(error.to_string())))
             }
             ApiError::UserStoreError(error) => (
@@ -70,6 +69,7 @@ impl IntoResponse for ApiError {
                 Json(ErrorResponse::from(error.to_string())),
             ),
             ApiError::EmailError(error) => (StatusCode::BAD_REQUEST, Json(ErrorResponse::from(error.to_string()))),
+            ApiError::PasswordError(error) => (StatusCode::BAD_REQUEST, Json(ErrorResponse::from(error.to_string()))),
             ApiError::LoginAttemptIdError(error) => {
                 (StatusCode::BAD_REQUEST, Json(ErrorResponse::from(error.to_string())))
             }
@@ -100,7 +100,6 @@ impl From<String> for ErrorResponse {
         ErrorResponse::Error(s)
     }
 }
-
 
 fn log_error_chain(error: &(dyn std::error::Error + 'static)) {
     use std::fmt::Write;

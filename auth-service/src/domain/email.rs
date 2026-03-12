@@ -1,39 +1,48 @@
+use crate::domain::Secret;
 use email_address::EmailAddress;
 use email_address::Options;
-use std::fmt::Display;
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct Email(EmailAddress);
-
-#[derive(thiserror::Error, Debug)]
-#[error("Invalid email: {0}")]
-pub struct EmailError(String);
-
-pub const EMAIL_OPTIONS: Options = Options {
-    minimum_sub_domains: 2,
-    allow_domain_literal: false,
-    allow_display_text: false,
-};
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct Email(Secret);
 
 impl Email {
-    pub fn parse(email: &str) -> Result<Self, EmailError> {
-        EmailAddress::parse_with_options(email, EMAIL_OPTIONS)
-            .map(Self)
-            .map_err(|error| EmailError(error.to_string()))
+    pub fn parse(email: &Secret) -> EmailResult<Self> {
+        const EMAIL_OPTIONS: Options = Options {
+            minimum_sub_domains: 2,
+            allow_domain_literal: false,
+            allow_display_text: false,
+        };
+        match EmailAddress::parse_with_options(email.expose(), EMAIL_OPTIONS) {
+            Ok(_) => Ok(Self(email.to_owned())),
+            Err(error) => Err(EmailError(error.into())),
+        }
+    }
+
+    #[must_use]
+    pub fn as_secret(&self) -> &Secret {
+        &self.0
     }
 }
 
-impl AsRef<str> for Email {
-    fn as_ref(&self) -> &str {
-        self.0.as_str()
+impl PartialEq for Email {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_secret() == other.as_secret()
     }
 }
 
-impl Display for Email {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+impl Eq for Email {}
+
+impl std::hash::Hash for Email {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.as_secret().hash(state);
     }
 }
+
+#[derive(thiserror::Error, Debug)]
+#[error("Invalid email")]
+pub struct EmailError(#[from] color_eyre::eyre::Report);
+
+pub type EmailResult<T> = Result<T, EmailError>;
 
 #[cfg(test)]
 mod tests {
@@ -43,13 +52,13 @@ mod tests {
 
     #[test]
     fn should_parse_valid_email() {
-        let email: String = SafeEmail().fake();
+        let email = SafeEmail().fake::<String>().into();
         assert!(Email::parse(&email).is_ok());
     }
 
     #[test]
     fn should_reject_invalid_email() {
-        let email = "invalid-email";
-        assert!(Email::parse(email).is_err());
+        let email = "invalid-email".into();
+        assert!(Email::parse(&email).is_err());
     }
 }

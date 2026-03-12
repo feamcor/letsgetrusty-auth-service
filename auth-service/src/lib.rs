@@ -1,4 +1,5 @@
 use crate::app_state::AppState;
+use crate::domain::Secret;
 use axum::http::Method;
 use axum::routing::get;
 use axum::routing::post;
@@ -106,18 +107,22 @@ async fn shutdown_signal(shutdown_token: CancellationToken) {
 
 #[tracing::instrument(name = "GetDatabasePool", level = tracing::Level::TRACE, skip_all
 )]
-pub async fn database_pool(db_url: &str, db_pool_min_size: u32, db_pool_max_size: u32) -> sqlx::Result<sqlx::PgPool> {
+pub async fn database_pool(
+    db_url: &Secret,
+    db_pool_min_size: u32,
+    db_pool_max_size: u32,
+) -> sqlx::Result<sqlx::PgPool> {
     sqlx::postgres::PgPoolOptions::new()
         .min_connections(db_pool_min_size)
         .max_connections(db_pool_max_size)
-        .connect(db_url)
+        .connect(db_url.expose())
         .await
 }
 
 #[tracing::instrument(name = "ConfigureDatabase", level = tracing::Level::TRACE, skip_all
 )]
 pub async fn configure_database(
-    db_url: &str,
+    db_url: &Secret,
     db_pool_min_size: u32,
     db_pool_max_size: u32,
 ) -> sqlx::Result<sqlx::PgPool> {
@@ -127,12 +132,12 @@ pub async fn configure_database(
 }
 
 #[tracing::instrument(name = "GetCacheClient", level = tracing::Level::TRACE, skip_all)]
-pub fn cache_client(cache_url: &str) -> redis::RedisResult<redis::Client> {
-    redis::Client::open(cache_url)
+pub fn cache_client(cache_url: &Secret) -> redis::RedisResult<redis::Client> {
+    redis::Client::open(cache_url.expose())
 }
 
 #[tracing::instrument(name = "ConfigureCache", level = tracing::Level::TRACE, skip_all)]
-pub fn configure_cache(cache_url: &str) -> redis::RedisResult<redis::Connection> {
+pub fn configure_cache(cache_url: &Secret) -> redis::RedisResult<redis::Connection> {
     let client = cache_client(cache_url)?;
     client.get_connection()
 }

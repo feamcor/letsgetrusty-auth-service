@@ -8,8 +8,6 @@ use crate::services::TwoFactorAuthCodeStoreResult;
 use redis::Commands;
 use redis::SetExpiry;
 use redis::SetOptions;
-use serde::Deserialize;
-use serde::Serialize;
 use std::fmt::Debug;
 use tokio::sync::RwLock;
 
@@ -45,7 +43,10 @@ impl TwoFactorAuthCodeStore for RedisTwoFactorAuthCodeStore {
     ) -> TwoFactorAuthCodeStoreResult<()> {
         let ttl = u64::from(consts::AUTH_SERVICE_2FA_TTL_SECONDS_DEFAULT);
         let key = get_key(&email);
-        let tuple = TwoFactorAuthTuple(login_attempt_id.as_ref().to_string(), code.as_ref().to_string());
+        let tuple = TwoFactorAuthTuple(
+            login_attempt_id.as_secret().expose().to_owned(),
+            code.as_secret().expose().to_owned(),
+        );
         let serialized =
             serde_json::to_string(&tuple).map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
         let mut connection = self.connection.write().await;
@@ -73,17 +74,17 @@ impl TwoFactorAuthCodeStore for RedisTwoFactorAuthCodeStore {
             .map_err(|_| TwoFactorAuthCodeStoreError::CodeNotFound)?;
         let tuple: TwoFactorAuthTuple =
             serde_json::from_str(&value).map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
-        let login_attempt_id =
-            LoginAttemptId::parse(tuple.0).map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
-        let code =
-            TwoFactorAuthCode::parse(tuple.1).map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
+        let login_attempt_id = LoginAttemptId::parse(&tuple.0.into())
+            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
+        let code = TwoFactorAuthCode::parse(&tuple.1.into())
+            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
         Ok((login_attempt_id, code))
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 struct TwoFactorAuthTuple(pub String, pub String);
 
 fn get_key(email: &Email) -> String {
-    format!("code:2fa:{}", email.as_ref())
+    format!("code:2fa:{}", email.as_secret().expose())
 }

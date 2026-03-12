@@ -1,9 +1,11 @@
+use crate::domain::Token;
+
 #[derive(thiserror::Error, Debug)]
 pub enum BannedTokenStoreError {
-    #[error("Token already exists: {0}")]
-    TokenAlreadyExists(String),
-    #[error("Token was not found: {0}")]
-    TokenNotFound(String),
+    #[error("Token already exists")]
+    TokenAlreadyExists,
+    #[error("Token was not found")]
+    TokenNotFound,
     #[error(transparent)]
     UnexpectedError(#[from] color_eyre::eyre::Report),
 }
@@ -12,9 +14,9 @@ pub type BannedTokenStoreResult<T> = Result<T, BannedTokenStoreError>;
 
 #[async_trait::async_trait]
 pub trait BannedTokenStore: Send + Sync {
-    async fn add_token(&self, token: &str) -> BannedTokenStoreResult<()>;
-    async fn is_token_banned(&self, token: &str) -> BannedTokenStoreResult<bool>;
-    async fn remove_token(&self, token: &str) -> BannedTokenStoreResult<()>;
+    async fn add_token(&self, token: &Token) -> BannedTokenStoreResult<()>;
+    async fn is_token_banned(&self, token: &Token) -> BannedTokenStoreResult<bool>;
+    async fn remove_token(&self, token: &Token) -> BannedTokenStoreResult<()>;
 }
 
 #[derive(Clone)]

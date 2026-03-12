@@ -1,7 +1,10 @@
 use crate::app_state::AppState;
+use crate::domain::Email;
+use crate::domain::HashedPassword;
 use crate::domain::LoginAttemptId;
+use crate::domain::Secret;
 use crate::domain::TwoFactorAuthCode;
-use crate::domain::User;
+use crate::utils::api_error::ApiError;
 use crate::utils::api_error::ApiResult;
 use crate::utils::auth::generate_auth_cookie;
 use axum::Json;
@@ -9,17 +12,15 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum_extra::extract::CookieJar;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct LoginRequest {
-    pub email: String,
-    pub password: String,
+    pub email: Secret,
+    pub password: Secret,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct TwoFactorAuthResponse {
     pub message: String,
@@ -43,11 +44,11 @@ pub async fn login(
     jar: CookieJar,
     Json(request): Json<LoginRequest>,
 ) -> ApiResult<(CookieJar, impl IntoResponse)> {
-    User::try_new(&request.email, &request.password, false).await?;
+    let email = Email::parse(&request.email)?;
+    let _ = HashedPassword::parse(&request.password, &email).await?;
     let user_store = state.user_store.inner();
-    user_store.validate_user(&request.email, &request.password).await?;
-    let user = user_store.get_user(&request.email).await?;
-
+    user_store.validate_user(&email, &request.password).await?;
+    let user = user_store.get_user(&email).await?;
     if user.requires_2fa {
         let response = TwoFactorAuthResponse::default();
         let login_attempt_id = response.login_attempt_id.clone();
@@ -58,7 +59,7 @@ pub async fn login(
             .send_email(
                 &user.email,
                 "Auth Service Login Attempt",
-                &format!("2FA Code: {auth_code}"),
+                &format!("2FA Code: {}", auth_code.as_secret().expose()),
             )
             .await?;
         state
@@ -70,11 +71,13 @@ pub async fn login(
     }
 
     let config = state.config.inner();
-    let cookie = generate_auth_cookie(
-        &user.email,
-        config.jwt_secret.as_ref().unwrap(),
-        i64::from(config.jwt_ttl_seconds),
-    )?;
+    let jwt_secret = config
+        .jwt_secret
+        .clone()
+        .ok_or(ApiError::UnexpectedError(color_eyre::eyre::eyre!(
+            "JWT secret is not set."
+        )))?;
+    let cookie = generate_auth_cookie(&user.email, &jwt_secret, i64::from(config.jwt_ttl_seconds))?;
     let jar = jar.add(cookie);
     Ok((jar, StatusCode::OK.into_response()))
 }

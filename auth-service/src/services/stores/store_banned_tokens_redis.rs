@@ -9,6 +9,7 @@ use redis::SetOptions;
 use std::fmt::Debug;
 use tokio::sync::RwLock;
 
+use crate::domain::Token;
 #[allow(unused_imports)]
 use tracing::Level;
 
@@ -33,7 +34,7 @@ impl RedisBannedTokenStore {
 #[async_trait::async_trait]
 impl BannedTokenStore for RedisBannedTokenStore {
     #[tracing::instrument(name = "AddBannedTokenIntoCache", level = Level::TRACE, skip_all)]
-    async fn add_token(&self, token: &str) -> BannedTokenStoreResult<()> {
+    async fn add_token(&self, token: &Token) -> BannedTokenStoreResult<()> {
         let ttl = u64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT);
         let key = token_key(token);
         let mut connection = self.connection.write().await;
@@ -43,13 +44,13 @@ impl BannedTokenStore for RedisBannedTokenStore {
         let result: redis::RedisResult<Option<String>> = connection.set_options(key, true, options);
         match result {
             Ok(Some(_)) => Ok(()),
-            Ok(None) => Err(BannedTokenStoreError::TokenAlreadyExists(token.to_string())),
+            Ok(None) => Err(BannedTokenStoreError::TokenAlreadyExists),
             Err(error) => Err(BannedTokenStoreError::UnexpectedError(error.into())),
         }
     }
 
     #[tracing::instrument(name = "CheckBannedTokenInCache", level = Level::TRACE, skip_all)]
-    async fn is_token_banned(&self, token: &str) -> BannedTokenStoreResult<bool> {
+    async fn is_token_banned(&self, token: &Token) -> BannedTokenStoreResult<bool> {
         let key = token_key(token);
         let mut connection = self.connection.write().await;
         connection
@@ -58,7 +59,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
     }
 
     #[tracing::instrument(name = "RemoveBannedTokenFromCache", level = Level::TRACE, skip_all)]
-    async fn remove_token(&self, token: &str) -> BannedTokenStoreResult<()> {
+    async fn remove_token(&self, token: &Token) -> BannedTokenStoreResult<()> {
         let key = token_key(token);
         let mut connection = self.connection.write().await;
         connection
@@ -67,6 +68,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
     }
 }
 
-fn token_key(token: &str) -> String {
-    format!("token:banned:{token}")
+fn token_key(token: &Token) -> String {
+    let raw_token = token.as_secret().expose();
+    format!("token:banned:{raw_token}")
 }

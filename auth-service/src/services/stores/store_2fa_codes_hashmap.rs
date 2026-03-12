@@ -49,23 +49,24 @@ mod tests {
     #[tokio::test]
     async fn test_add_get_and_remove_code() {
         let store = HashmapTwoFactorAuthCodeStore::default();
-        let email = Email::parse(SafeEmail().fake::<String>().as_str()).unwrap();
+        let email = SafeEmail().fake::<String>().into();
+        let parsed_email = Email::parse(&email).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFactorAuthCode::default();
 
         let result = store
-            .add_code(email.clone(), login_attempt_id.clone(), code.clone())
+            .add_code(parsed_email.clone(), login_attempt_id.clone(), code.clone())
             .await;
         assert!(result.is_ok());
 
-        let (retrieved_id, retrieved_code) = store.get_code(&email).await.unwrap();
+        let (retrieved_id, retrieved_code) = store.get_code(&parsed_email).await.unwrap();
         assert_eq!(retrieved_id, login_attempt_id);
         assert_eq!(retrieved_code, code);
 
-        let result = store.remove_code(&email).await;
+        let result = store.remove_code(&parsed_email).await;
         assert!(result.is_ok());
 
-        let result = store.get_code(&email).await;
+        let result = store.get_code(&parsed_email).await;
         assert!(matches!(result, Err(TwoFactorAuthCodeStoreError::CodeNotFound)));
     }
 }

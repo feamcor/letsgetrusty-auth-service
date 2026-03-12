@@ -6,14 +6,13 @@ pub use log_level::LogLevel;
 mod store_engine;
 pub use store_engine::StoreEngine;
 
+use crate::domain::Secret;
 use clap::ArgGroup;
 use clap::Parser;
 use clap::ValueEnum;
 use dotenvy::dotenv_override;
 use fmt::Display;
 use fmt::Formatter;
-use secrecy::ExposeSecret;
-use secrecy::SecretString;
 use std::env;
 use std::fmt;
 use std::net::Ipv4Addr;
@@ -111,7 +110,7 @@ pub struct Config {
     pub db_username: String,
 
     #[arg(skip)]
-    pub db_password: Option<SecretString>,
+    pub db_password: Option<Secret>,
 
     #[arg(
         long,
@@ -150,7 +149,7 @@ pub struct Config {
     pub jwt_ttl_seconds: u32,
 
     #[arg(skip)]
-    pub jwt_secret: Option<SecretString>,
+    pub jwt_secret: Option<Secret>,
 
     #[arg(
         long,
@@ -426,6 +425,12 @@ impl Config {
 
         let db_password = secret_from_environment(consts::AUTH_SERVICE_DB_PASSWORD);
         let jwt_secret = secret_from_environment(consts::AUTH_SERVICE_JWT_SECRET);
+        assert!(
+            !(db_password.is_none() || jwt_secret.is_none()),
+            "{} and {} must be set in the environment",
+            consts::AUTH_SERVICE_DB_PASSWORD,
+            consts::AUTH_SERVICE_JWT_SECRET
+        );
 
         Self {
             app_service_port,
@@ -469,21 +474,25 @@ impl Config {
     }
 
     #[must_use]
-    pub fn database_url(&self, db_database: Option<&str>) -> String {
+    pub fn database_url(&self, db_database: Option<&str>) -> Secret {
         let db_database = db_database.unwrap_or(&self.db_database);
         format!(
             "postgresql://{}:{}@{}:{}/{}?options=-c%20search_path%3Dauth,public",
             self.db_username,
-            self.db_password.as_ref().unwrap().expose_secret(),
+            self.db_password
+                .as_ref()
+                .unwrap_or(&String::new().into()) // should never happen
+                .expose(),
             self.db_hostname,
             self.db_port,
             db_database
         )
+        .into()
     }
 
     #[must_use]
-    pub fn cache_url(&self) -> String {
-        format!("redis://{}:{}", self.cache_hostname, self.cache_port)
+    pub fn cache_url(&self) -> Secret {
+        format!("redis://{}:{}", self.cache_hostname, self.cache_port).into()
     }
 }
 
@@ -506,7 +515,7 @@ impl ConfigType {
     }
 }
 
-pub fn secret_from_environment(environment_variable: &str) -> Option<SecretString> {
+pub fn secret_from_environment(environment_variable: &str) -> Option<Secret> {
     let secret = match env::var(environment_variable) {
         Ok(string) => string,
         Err(error) => {
@@ -520,5 +529,5 @@ pub fn secret_from_environment(environment_variable: &str) -> Option<SecretStrin
         return None;
     }
 
-    Some(SecretString::from(secret))
+    Some(secret.into())
 }

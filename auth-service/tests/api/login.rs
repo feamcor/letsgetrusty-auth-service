@@ -67,8 +67,8 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled(ctx: &mut TestAp
             .await
             .expect("Failed to deserialize TwoFactorAuthResponse");
         let email = request.get("email").unwrap();
-        let email = email.as_str().unwrap();
-        let email = Email::parse(email).unwrap();
+        let email = email.as_str().unwrap().into();
+        let email = Email::parse(&email).unwrap();
         let (stored_login_attempt_id, _) = app
             .two_factor_auth_code_store
             .inner()

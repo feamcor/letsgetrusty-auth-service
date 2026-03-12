@@ -24,8 +24,8 @@ impl UserStore for PostgresUserStore {
             INSERT INTO auth.users (email, password_hash, requires_2fa)
             VALUES ($1, $2, $3)
             "#,
-            user.email.as_ref(),
-            user.password.expose(),
+            user.email.as_secret().expose(),
+            user.password.as_secret().expose(),
             user.requires_2fa
         )
         .execute(&self.pool)
@@ -36,7 +36,7 @@ impl UserStore for PostgresUserStore {
                 let code = error.code();
                 let code = code.as_deref().unwrap_or("unknown");
                 if code == "23505" {
-                    Err(UserStoreError::UserAlreadyExists(user.email.to_string()))
+                    Err(UserStoreError::UserAlreadyExists)
                 } else {
                     tracing::error!("Unexpected error on adding user: {}: {}", code, error);
                     Err(UserStoreError::UnexpectedError(error.into()))
@@ -49,25 +49,25 @@ impl UserStore for PostgresUserStore {
         }
     }
 
-    async fn get_user(&self, email: &str) -> UserStoreResult<User> {
+    async fn get_user(&self, email: &Email) -> UserStoreResult<User> {
         match sqlx::query!(
             r#"
             SELECT users.email, users.password_hash, users.requires_2fa
             FROM auth.users
             WHERE users.email = $1
             "#,
-            email
+            email.as_secret().expose()
         )
         .fetch_optional(&self.pool)
         .await
         {
             Ok(Some(record)) => Ok(User {
-                email: Email::parse(&record.email).map_err(|e| UserStoreError::UnexpectedError(e.into()))?,
-                password: HashedPassword::parse_password_hash(&record.password_hash)
+                email: Email::parse(&record.email.into()).map_err(|e| UserStoreError::UnexpectedError(e.into()))?,
+                password: HashedPassword::parse_password_hash(&record.password_hash.into())
                     .map_err(|e| UserStoreError::UnexpectedError(e.into()))?,
                 requires_2fa: record.requires_2fa,
             }),
-            Ok(None) => Err(UserStoreError::UserNotFound(email.to_string())),
+            Ok(None) => Err(UserStoreError::UserNotFound),
             Err(error) => Err(UserStoreError::UnexpectedError(error.into())),
         }
     }
