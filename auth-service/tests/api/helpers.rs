@@ -1,18 +1,37 @@
 use auth_service::app_state::AppState;
-use auth_service::config::{Config, ConfigType, StoreEngine};
-use auth_service::services::{
-    BannedTokenStoreType, EmailClientType, HashmapTwoFactorAuthCodeStore, HashmapUserStore,
-    HashsetBannedTokenStore, MockEmailClient, PostgresUserStore, RedisBannedTokenStore,
-    TwoFactorAuthCodeStoreType, UserStoreType,
-};
-use auth_service::{configure_cache, Application};
+use auth_service::config::cache::CacheEngine;
+use auth_service::config::database::DatabaseEngine;
+use auth_service::config::email::EmailService;
+use auth_service::config::Config;
+use auth_service::config::ConfigType;
+use auth_service::configure_cache;
+use auth_service::domain::Email;
+use auth_service::domain::Secret;
+use auth_service::services::BannedTokenStoreType;
+use auth_service::services::EmailClientType;
+use auth_service::services::HashmapTwoFactorAuthCodeStore;
+use auth_service::services::HashmapUserStore;
+use auth_service::services::HashsetBannedTokenStore;
+use auth_service::services::MockEmailClient;
+use auth_service::services::PostgresUserStore;
+use auth_service::services::PostmarkEmailClient;
+use auth_service::services::RedisBannedTokenStore;
+use auth_service::services::RedisTwoFactorAuthCodeStore;
+use auth_service::services::TwoFactorAuthCodeStoreType;
+use auth_service::services::UserStoreType;
+use auth_service::Application;
 use axum::http::Uri;
 use reqwest::cookie::Jar;
-use reqwest::{Client, Response};
-use serde::Serialize;
-use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
-use sqlx::{Connection, Executor, PgConnection, PgPool};
-use std::net::{Ipv4Addr, SocketAddr};
+use reqwest::Client;
+use reqwest::Response;
+use sqlx::postgres::PgConnectOptions;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::Connection;
+use sqlx::Executor;
+use sqlx::PgConnection;
+use sqlx::PgPool;
+use std::net::Ipv4Addr;
+use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use test_context::AsyncTestContext;
@@ -21,11 +40,13 @@ use uuid::Uuid;
 
 pub struct TestApp {
     pub base_url: String,
-    pub http_client: Client,
-    pub cookie_jar: Arc<Jar>,
+    pub cookie_jar: std::sync::Arc<Jar>,
     pub banned_token_store: BannedTokenStoreType,
     pub two_factor_auth_code_store: TwoFactorAuthCodeStoreType,
-    pub db_url: Option<String>,
+    pub http_client: reqwest::Client,
+    //pub email_client: EmailClientType,
+    pub email_server: Option<wiremock::MockServer>,
+    pub db_url: Option<Secret>,
 }
 
 impl TestApp {
@@ -34,37 +55,61 @@ impl TestApp {
         let config_type = ConfigType::new(config);
         let config = config_type.inner();
         let mut real_db_url = None;
-        let user_store_type = match config.store_engine {
-            StoreEngine::Ephemeral => UserStoreType::new(HashmapUserStore::default()),
-            StoreEngine::Server => {
-                real_db_url = Some(config.database_url(None));
+        let user_store_type = match config.db.db_engine {
+            DatabaseEngine::Memory => UserStoreType::new(HashmapUserStore::default()),
+            DatabaseEngine::Postgres => {
+                real_db_url = Some(config.db.db_url(None));
                 let test_db_pool = configure_database_for_testing(
                     real_db_url.as_ref().unwrap(),
                     test_db_name,
-                    &config.database_url(Some(test_db_name)),
+                    &config.db.db_url(Some(test_db_name)),
                 )
-                .await;
+                    .await;
                 UserStoreType::new(PostgresUserStore::new(test_db_pool))
             }
         };
-        let banned_token_store_type = match config.store_engine {
-            StoreEngine::Ephemeral => BannedTokenStoreType::new(HashsetBannedTokenStore::default()),
-            StoreEngine::Server => {
-                let connection =
-                    configure_cache(&config.cache_url()).expect("Failed to configure cache");
+        let banned_token_store_type = match config.cache.cache_engine {
+            CacheEngine::Memory => BannedTokenStoreType::new(HashsetBannedTokenStore::default()),
+            CacheEngine::Redis => {
+                let connection = configure_cache(&config.cache.cache_url()).expect("Failed to configure cache");
                 let connection = RwLock::new(connection);
-                BannedTokenStoreType::new(RedisBannedTokenStore::new(connection))
+                BannedTokenStoreType::new(RedisBannedTokenStore::new(connection, u64::from(config.jwt.jwt_ttl)))
             }
         };
-        let two_factor_auth_code_store_type =
-            TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default());
-        let email_client_type = EmailClientType::new(MockEmailClient);
+        let two_factor_auth_code_store_type = match config.cache.cache_engine {
+            CacheEngine::Memory => TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default()),
+            CacheEngine::Redis => {
+                let connection = configure_cache(&config.cache.cache_url()).expect("Failed to configure cache");
+                let connection = RwLock::new(connection);
+                TwoFactorAuthCodeStoreType::new(RedisTwoFactorAuthCodeStore::new(
+                    connection,
+                    u64::from(config.tfa.tfa_ttl),
+                ))
+            }
+        };
+        let mut email_server = None;
+        let email_client_type = match config.email.email_service {
+            EmailService::Mock => EmailClientType::new(MockEmailClient),
+            EmailService::Postmark => {
+                email_server = Some(wiremock::MockServer::start().await);
+                let api_key = Secret::new("fake-auth-token");
+                let api_url = url::Url::parse(&email_server.as_ref().unwrap().uri()).unwrap();
+                let api_timeout = config.email.email_api_timeout;
+                let client = configure_email_client_for_testing(
+                    api_key,
+                    api_url,
+                    api_timeout,
+                    config.email.email_stream.clone(),
+                    config.email.email_sender.clone().unwrap());
+                EmailClientType::new(client)
+            }
+        };
         let app_state = AppState::new(
-            user_store_type,
+            user_store_type.clone(),
             banned_token_store_type.clone(),
             two_factor_auth_code_store_type.clone(),
-            email_client_type,
-            config_type,
+            email_client_type.clone(),
+            config_type.clone(),
         );
         let socket_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 0));
         let application = Application::build(app_state, socket_addr)
@@ -88,10 +133,12 @@ impl TestApp {
             .expect("Failed to build HTTP client");
         Self {
             base_url: uri.to_string(),
-            http_client,
             cookie_jar,
             banned_token_store: banned_token_store_type,
             two_factor_auth_code_store: two_factor_auth_code_store_type,
+            http_client,
+            //email_client: email_client_type,
+            email_server,
             db_url: real_db_url,
         }
     }
@@ -105,7 +152,7 @@ impl TestApp {
             .expect("Failed to execute get_root request")
     }
 
-    pub async fn post_signup<S: Serialize>(&self, body: &S) -> Response {
+    pub async fn post_signup<S: serde::Serialize>(&self, body: &S) -> Response {
         let request_url = format!("{}api/signup", &self.base_url);
         self.http_client
             .post(&request_url)
@@ -115,7 +162,7 @@ impl TestApp {
             .expect("Failed to execute post_signup request")
     }
 
-    pub async fn post_login<S: Serialize>(&self, body: &S) -> Response {
+    pub async fn post_login<S: serde::Serialize>(&self, body: &S) -> Response {
         let request_url = format!("{}api/login", &self.base_url);
         self.http_client
             .post(&request_url)
@@ -134,7 +181,7 @@ impl TestApp {
             .expect("Failed to execute post_logout request")
     }
 
-    pub async fn post_verify_2fa<S: Serialize>(&self, body: &S) -> Response {
+    pub async fn post_verify_2fa<S: serde::Serialize>(&self, body: &S) -> Response {
         let request_url = format!("{}api/verify-2fa", &self.base_url);
         self.http_client
             .post(&request_url)
@@ -144,7 +191,7 @@ impl TestApp {
             .expect("Failed to execute post_verify_2fa request")
     }
 
-    pub async fn post_verify_token<S: Serialize>(&self, body: &S) -> Response {
+    pub async fn post_verify_token<S: serde::Serialize>(&self, body: &S) -> Response {
         let request_url = format!("{}api/verify-token", &self.base_url);
         self.http_client
             .post(&request_url)
@@ -157,7 +204,7 @@ impl TestApp {
 
 pub struct TestAppAsyncContext {
     pub db_name: String,
-    pub db_url: Option<String>,
+    pub db_url: Option<Secret>,
 }
 
 impl AsyncTestContext for TestAppAsyncContext {
@@ -175,20 +222,16 @@ impl AsyncTestContext for TestAppAsyncContext {
     }
 }
 
-async fn configure_database_for_testing(
-    real_db_url: &str,
-    test_db_name: &str,
-    test_db_url: &str,
-) -> PgPool {
+async fn configure_database_for_testing(real_db_url: &Secret, test_db_name: &str, test_db_url: &Secret) -> PgPool {
     let pool = PgPoolOptions::new()
-        .connect(real_db_url)
+        .connect(real_db_url.expose())
         .await
         .expect("Failed to connect to test database");
     pool.execute(format!(r#"CREATE DATABASE "{test_db_name}";"#).as_str())
         .await
         .expect("Failed to create test database");
     let pool = PgPoolOptions::new()
-        .connect(test_db_url)
+        .connect(test_db_url.expose())
         .await
         .expect("Failed to create to test database");
     sqlx::migrate!()
@@ -198,9 +241,9 @@ async fn configure_database_for_testing(
     pool
 }
 
-async fn delete_database(real_db_url: &str, test_db_name: &str) {
-    let options = PgConnectOptions::from_str(real_db_url)
-        .expect("Failed to parse the database connection string");
+async fn delete_database(real_db_url: &Secret, test_db_name: &str) {
+    let options =
+        PgConnectOptions::from_str(real_db_url.expose()).expect("Failed to parse the database connection string");
     let mut connection = PgConnection::connect_with(&options)
         .await
         .expect("Failed to connect to the app database");
@@ -214,7 +257,7 @@ async fn delete_database(real_db_url: &str, test_db_name: &str) {
                    AND pid <> pg_backend_pid();
                 "
             )
-            .as_str(),
+                .as_str(),
         )
         .await
         .expect("Failed to kill all connections to the test database");
@@ -222,4 +265,18 @@ async fn delete_database(real_db_url: &str, test_db_name: &str) {
         .execute(format!(r#"DROP DATABASE "{test_db_name}";"#).as_str())
         .await
         .expect("Failed to drop the test database");
+}
+
+fn configure_email_client_for_testing(
+    api_key: Secret,
+    api_url: url::Url,
+    api_timeout: u32,
+    stream: String,
+    sender: Email,
+) -> PostmarkEmailClient {
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_millis(u64::from(api_timeout)))
+        .build()
+        .expect("Failed to build HTTP client");
+    PostmarkEmailClient::new(client, api_key, api_url, stream, sender)
 }

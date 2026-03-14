@@ -1,45 +1,48 @@
+use crate::domain::Email;
+use crate::domain::Secret;
 use crate::domain::User;
-use std::sync::Arc;
 
 #[derive(thiserror::Error, Debug)]
 pub enum UserStoreError {
-    #[error("User already exists: {0}")]
-    UserAlreadyExists(String),
-    #[error("User was not found: {0}")]
-    UserNotFound(String),
-    #[error("User incorrect credentials: {0}")]
-    IncorrectCredentials(String),
+    #[error("User already exists")]
+    UserAlreadyExists,
+    #[error("User was not found")]
+    UserNotFound,
+    #[error("User incorrect credentials")]
+    IncorrectCredentials,
     #[error(transparent)]
-    UnexpectedError(#[from] anyhow::Error),
+    UnexpectedError(#[from] color_eyre::eyre::Report),
 }
+
+pub type UserStoreResult<T> = Result<T, UserStoreError>;
 
 #[async_trait::async_trait]
 pub trait UserStore: Send + Sync {
-    async fn add_user(&self, user: User) -> Result<(), UserStoreError>;
-    async fn get_user(&self, email: &str) -> Result<User, UserStoreError>;
-    async fn validate_user(&self, email: &str, raw_password: &str) -> Result<(), UserStoreError> {
+    async fn add_user(&self, user: User) -> UserStoreResult<()>;
+    async fn get_user(&self, email: &Email) -> UserStoreResult<User>;
+    async fn validate_user(&self, email: &Email, password: &Secret) -> UserStoreResult<()> {
         let user = self.get_user(email).await?;
-        match user.password.verify_raw_password(raw_password).await {
+        match user.password.verify_password(password).await {
             Ok(()) => Ok(()),
-            Err(_) => Err(UserStoreError::IncorrectCredentials(email.to_string())),
+            Err(_) => Err(UserStoreError::IncorrectCredentials),
         }
     }
 }
 
 #[derive(Clone)]
 pub struct UserStoreType {
-    inner: Arc<dyn UserStore>,
+    inner: std::sync::Arc<dyn UserStore>,
 }
 
 impl UserStoreType {
     pub fn new(inner: impl UserStore + 'static) -> Self {
         Self {
-            inner: Arc::new(inner),
+            inner: std::sync::Arc::new(inner),
         }
     }
 
     #[must_use]
-    pub fn inner(&self) -> Arc<dyn UserStore> {
+    pub fn inner(&self) -> std::sync::Arc<dyn UserStore> {
         self.inner.clone()
     }
 }

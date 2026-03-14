@@ -1,13 +1,18 @@
-use crate::helpers::{TestApp, TestAppAsyncContext};
-use auth_service::domain::{Email, SAFE_PASSWORD_LENGTH_RANGE};
+use crate::helpers::TestApp;
+use crate::helpers::TestAppAsyncContext;
+use auth_service::domain::Email;
+use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
 use auth_service::routes::TwoFactorAuthResponse;
 use auth_service::utils::auth::JWT_COOKIE_NAME;
 use fake::Fake;
-use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
+use fake::faker::internet::en::DomainSuffix;
+use fake::faker::internet::en::Password;
+use fake::faker::internet::en::SafeEmail;
 use mime::APPLICATION_JSON;
 use reqwest::StatusCode;
 use reqwest::header::CONTENT_TYPE;
-use serde_json::{Value, json};
+use serde_json::Value;
+use serde_json::json;
 use test_context::test_context;
 
 #[test_context(TestAppAsyncContext)]
@@ -54,19 +59,22 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled(ctx: &mut TestAp
         });
         let signup_response = app.post_signup(&signup_request).await;
         assert_eq!(signup_response.status(), StatusCode::CREATED);
+        wiremock::Mock::given(wiremock::matchers::path("/email"))
+            .and(wiremock::matchers::method("POST"))
+            .respond_with(wiremock::ResponseTemplate::new(200))
+            .expect(1)
+            .mount(app.email_server.as_ref().unwrap())
+            .await;
         let response = app.post_login(&request).await;
         assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
-        assert_eq!(
-            response.headers().get(CONTENT_TYPE).unwrap(),
-            APPLICATION_JSON.as_ref()
-        );
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
         let body = response
             .json::<TwoFactorAuthResponse>()
             .await
             .expect("Failed to deserialize TwoFactorAuthResponse");
         let email = request.get("email").unwrap();
-        let email = email.as_str().unwrap();
-        let email = Email::parse(email).unwrap();
+        let email = email.as_str().unwrap().into();
+        let email = Email::parse(&email).unwrap();
         let (stored_login_attempt_id, _) = app
             .two_factor_auth_code_store
             .inner()
@@ -99,10 +107,7 @@ async fn should_return_400_if_invalid_input(ctx: &mut TestAppAsyncContext) {
     for request in &requests {
         let response = app.post_login(request).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        assert_eq!(
-            response.headers().get(CONTENT_TYPE).unwrap(),
-            APPLICATION_JSON.as_ref()
-        );
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
     }
 }
 
@@ -125,10 +130,7 @@ async fn should_return_401_if_incorrect_credentials(ctx: &mut TestAppAsyncContex
         assert_eq!(signup_response.status(), StatusCode::CREATED);
         let response = app.post_login(&request).await;
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-        assert_eq!(
-            response.headers().get(CONTENT_TYPE).unwrap(),
-            APPLICATION_JSON.as_ref()
-        );
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
     }
 }
 
@@ -164,9 +166,6 @@ async fn should_return_500_if_unexpected_error(ctx: &mut TestAppAsyncContext) {
             StatusCode::INTERNAL_SERVER_ERROR,
             "Input: {request:?}"
         );
-        assert_eq!(
-            response.headers().get(CONTENT_TYPE).unwrap(),
-            APPLICATION_JSON.as_ref()
-        );
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
     }
 }

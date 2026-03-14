@@ -1,42 +1,34 @@
 use crate::app_state::AppState;
+use crate::domain::Email;
+use crate::domain::HashedPassword;
+use crate::domain::Secret;
 use crate::domain::User;
-use crate::utils::api_error::ApiError;
+use crate::utils::api_error::ApiResult;
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use serde::{Deserialize, Serialize};
-use tracing::instrument;
 
-#[allow(unused_imports)]
-use tracing::Level;
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct SignupRequest {
-    pub email: String,
-    pub password: String,
+    pub email: Secret,
+    pub password: Secret,
     #[serde(rename = "requires2FA")]
     pub requires_2fa: bool,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct SignupResponse {
     pub message: String,
 }
 
-#[instrument(level = Level::TRACE)]
-pub async fn signup(
-    State(state): State<AppState>,
-    Json(request): Json<SignupRequest>,
-) -> Result<impl IntoResponse, ApiError> {
-    let user = User::try_new(
-        request.email.as_str(),
-        request.password.as_str(),
-        request.requires_2fa,
-    )
-    .await?;
+#[tracing::instrument(name = "ApiHandlerSignup", skip_all)]
+pub async fn signup(State(state): State<AppState>, Json(request): Json<SignupRequest>) -> ApiResult<impl IntoResponse> {
+    let email = Email::parse(&request.email)?;
+    let password = HashedPassword::parse(&request.password, &email).await?;
+    let user = User::new(&email, &password, request.requires_2fa);
     state.user_store.inner().add_user(user).await?;
     let response = Json(SignupResponse {
         message: "User created successfully".to_string(),

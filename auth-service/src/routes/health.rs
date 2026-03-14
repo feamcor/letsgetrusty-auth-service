@@ -1,12 +1,8 @@
-use crate::utils::api_error::ApiError;
+use crate::utils::api_error::ApiResult;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use tracing::instrument;
 
-#[allow(unused_imports)]
-use tracing::Level;
-
-#[instrument(level = Level::TRACE)]
-pub async fn health() -> Result<impl IntoResponse, ApiError> {
+#[tracing::instrument(name = "ApiHandlerHealth", skip_all)]
+pub async fn health() -> ApiResult<impl IntoResponse> {
     Ok(StatusCode::OK.into_response())
 }

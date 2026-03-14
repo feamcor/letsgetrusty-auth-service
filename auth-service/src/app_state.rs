@@ -1,7 +1,8 @@
 use crate::config::ConfigType;
-use crate::services::{
-    BannedTokenStoreType, EmailClientType, TwoFactorAuthCodeStoreType, UserStoreType,
-};
+use crate::services::BannedTokenStoreType;
+use crate::services::EmailClientType;
+use crate::services::TwoFactorAuthCodeStoreType;
+use crate::services::UserStoreType;
 
 #[derive(Debug, Clone)]
 pub struct AppState {

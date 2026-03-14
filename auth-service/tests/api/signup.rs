@@ -1,12 +1,16 @@
-use crate::helpers::{TestApp, TestAppAsyncContext};
+use crate::helpers::TestApp;
+use crate::helpers::TestAppAsyncContext;
 use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
 use auth_service::routes::SignupResponse;
-use fake::faker::internet::en::{DomainSuffix, Password, SafeEmail};
 use fake::Fake;
+use fake::faker::internet::en::DomainSuffix;
+use fake::faker::internet::en::Password;
+use fake::faker::internet::en::SafeEmail;
 use mime::APPLICATION_JSON;
-use reqwest::header::CONTENT_TYPE;
 use reqwest::StatusCode;
-use serde_json::{json, Value};
+use reqwest::header::CONTENT_TYPE;
+use serde_json::Value;
+use serde_json::json;
 use test_context::test_context;
 
 #[test_context(TestAppAsyncContext)]
@@ -32,11 +36,11 @@ async fn should_return_201_if_valid_input(ctx: &mut TestAppAsyncContext) {
     for request in &requests {
         let response = app.post_signup(&request).await;
         assert_eq!(response.status(), StatusCode::CREATED);
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
         assert_eq!(
-            response.headers().get(CONTENT_TYPE).unwrap(),
-            APPLICATION_JSON.as_ref()
+            response.json::<SignupResponse>().await.unwrap().message,
+            expected.message
         );
-        assert_eq!(response.json::<SignupResponse>().await.unwrap(), expected);
     }
 }
 
@@ -59,15 +63,8 @@ async fn should_return_400_if_invalid_input(ctx: &mut TestAppAsyncContext) {
     ];
     for request in &requests {
         let response = app.post_signup(&request).await;
-        assert_eq!(
-            response.status(),
-            StatusCode::BAD_REQUEST,
-            "Input: {request:?}"
-        );
-        assert_eq!(
-            response.headers().get(CONTENT_TYPE).unwrap(),
-            APPLICATION_JSON.as_ref()
-        );
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "Input: {request:?}");
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
     }
 }
 
@@ -83,17 +80,11 @@ async fn should_return_409_if_user_already_exists(ctx: &mut TestAppAsyncContext)
     });
     let response = app.post_signup(&request).await;
     assert_eq!(response.status(), StatusCode::CREATED);
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        APPLICATION_JSON.as_ref()
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
 
     let response = app.post_signup(&request).await;
     assert_eq!(response.status(), StatusCode::CONFLICT);
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        APPLICATION_JSON.as_ref()
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
 }
 
 #[test_context(TestAppAsyncContext)]
@@ -147,9 +138,6 @@ async fn should_return_500_if_unexpected_error(ctx: &mut TestAppAsyncContext) {
             StatusCode::INTERNAL_SERVER_ERROR,
             "Input: {request:?}"
         );
-        assert_eq!(
-            response.headers().get(CONTENT_TYPE).unwrap(),
-            APPLICATION_JSON.as_ref()
-        );
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
     }
 }

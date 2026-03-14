@@ -1,30 +1,35 @@
 use crate::app_state::AppState;
+use crate::domain::Token;
 use crate::utils::api_error::ApiError;
+use crate::utils::api_error::ApiResult;
 use crate::utils::auth::JWT_COOKIE_NAME;
-use crate::utils::auth::{create_auth_cookie, validate_token};
+use crate::utils::auth::create_auth_cookie;
+use crate::utils::auth::validate_token;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum_extra::extract::CookieJar;
-use tracing::instrument;
 
-#[allow(unused_imports)]
-use tracing::Level;
-
-#[instrument(level = Level::TRACE)]
-pub async fn logout(
-    State(state): State<AppState>,
-    jar: CookieJar,
-) -> Result<(CookieJar, impl IntoResponse), ApiError> {
+#[tracing::instrument(name = "ApiHandlerLogout", skip_all)]
+pub async fn logout(State(state): State<AppState>, jar: CookieJar) -> ApiResult<(CookieJar, impl IntoResponse)> {
     let Some(cookie) = jar.get(JWT_COOKIE_NAME) else {
         return Err(ApiError::TokenMissing);
     };
-    let token = cookie.value().to_owned();
+    let cookie = cookie.value().into();
+    let token = Token::new(&cookie);
     let config = state.config.inner();
-    validate_token(&token, config.jwt_secret.as_ref().unwrap())
+    let jwt_secret = config
+        .jwt
+        .jwt_secret
+        .clone()
+        .ok_or(ApiError::UnexpectedError(color_eyre::eyre::eyre!(
+            "JWT secret is not set."
+        )))?;
+    validate_token(&token, &jwt_secret)
         .await
         .map_err(|_| ApiError::TokenInvalid)?;
-    let jar = jar.remove(create_auth_cookie(String::new()));
+    let cookie = create_auth_cookie(&Token::new(&String::new().into()));
+    let jar = jar.remove(cookie);
     let _ = state
         .banned_token_store
         .inner()

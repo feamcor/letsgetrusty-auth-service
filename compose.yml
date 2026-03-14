@@ -3,7 +3,8 @@ services:
     image: feamcor/app-service
     restart: always
     environment:
-      AUTH_SERVICE_IP: "${AUTH_SERVICE_IP:-auth-service}"
+      AUTH_SERVICE_IP: "localhost"
+      AUTH_SERVICE_HOST_NAME: "auth-service"
     ports:
       - "${APP_SERVICE_PORT:-8000}:8000"
     depends_on:
@@ -13,17 +14,30 @@ services:
     image: feamcor/auth-service
     restart: always
     environment:
-      APP_SERVICE_PORT: ${APP_SERVICE_PORT:-8000}
-      AUTH_SERVICE_CACHE_HOSTNAME: "cache"
+      AUTH_SERVICE_CACHE_ENGINE: "redis"
+      AUTH_SERVICE_CACHE_HOST: "cache"
       AUTH_SERVICE_CACHE_PORT: ${AUTH_SERVICE_CACHE_PORT:-6379}
-      AUTH_SERVICE_DB_DATABASE: "${AUTH_SERVICE_DB_DATABASE:-letsgetrusty}"
-      AUTH_SERVICE_DB_HOSTNAME: "db"
+      AUTH_SERVICE_DB_ENGINE: "postgres"
+      AUTH_SERVICE_DB_HOST: "db"
+      AUTH_SERVICE_DB_NAME: "${AUTH_SERVICE_DB_NAME:-letsgetrusty}"
       AUTH_SERVICE_DB_PASSWORD: "${AUTH_SERVICE_DB_PASSWORD}"
+      AUTH_SERVICE_DB_POOL_MAX: ${AUTH_SERVICE_DB_POOL_MAX:-100}
+      AUTH_SERVICE_DB_POOL_MIN: ${AUTH_SERVICE_DB_POOL_MIN:-1}
       AUTH_SERVICE_DB_PORT: ${AUTH_SERVICE_DB_PORT:-5432}
-      AUTH_SERVICE_DB_USERNAME: "${AUTH_SERVICE_DB_USERNAME:-administrator}"
+      AUTH_SERVICE_DB_USER: "${AUTH_SERVICE_DB_USER}"
+      AUTH_SERVICE_EMAIL_SERVICE: "postmark"
+      AUTH_SERVICE_EMAIL_API_KEY: "${AUTH_SERVICE_EMAIL_API_KEY}"
+      AUTH_SERVICE_EMAIL_API_TIMEOUT: ${AUTH_SERVICE_EMAIL_API_TIMEOUT:-1000}
+      AUTH_SERVICE_EMAIL_API_URL: "${AUTH_SERVICE_EMAIL_API_URL:-https://api.postmarkapp.com/email}"
+      AUTH_SERVICE_EMAIL_SENDER: "${AUTH_SERVICE_EMAIL_SENDER}"
+      AUTH_SERVICE_EMAIL_STREAM: "${AUTH_SERVICE_EMAIL_STREAM:-outbound}"
       AUTH_SERVICE_JWT_SECRET: "${AUTH_SERVICE_JWT_SECRET}"
+      AUTH_SERVICE_JWT_TTL: ${AUTH_SERVICE_JWT_TTL:-900}
       AUTH_SERVICE_LOG: "${AUTH_SERVICE_LOG:-info}"
+      APP_SERVICE_PORT: ${APP_SERVICE_PORT:-8000}
+      AUTH_SERVICE_HOST_IPV4: "${AUTH_SERVICE_HOST_IPV4:-0.0.0.0}"
       AUTH_SERVICE_PORT: ${AUTH_SERVICE_PORT:-3000}
+      AUTH_SERVICE_TFA_TTL: ${AUTH_SERVICE_TFA_TTL:-300}
     ports:
       - "${AUTH_SERVICE_PORT:-3000}:3000"
     depends_on:
@@ -35,9 +49,9 @@ services:
     image: postgres:latest
     restart: always
     environment:
-      POSTGRES_DB: "${AUTH_SERVICE_DB_DATABASE:-letsgetrusty}"
+      POSTGRES_DB: "${AUTH_SERVICE_DB_NAME:-letsgetrusty}"
       POSTGRES_PASSWORD: "${AUTH_SERVICE_DB_PASSWORD}"
-      POSTGRES_USER: "${AUTH_SERVICE_DB_USERNAME:-administrator}"
+      POSTGRES_USER: "${AUTH_SERVICE_DB_USER}"
     ports:
       - "127.0.0.1:${AUTH_SERVICE_DB_PORT:-5432}:5432"
       - "[::1]:${AUTH_SERVICE_DB_PORT:-5432}:5432"

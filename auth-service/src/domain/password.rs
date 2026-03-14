@@ -1,23 +1,26 @@
+use crate::domain::Email;
+use crate::domain::Secret;
+use argon2::Algorithm;
+use argon2::Argon2;
+use argon2::Params;
+use argon2::PasswordHash;
+use argon2::PasswordHasher;
+use argon2::PasswordVerifier;
+use argon2::Version;
+use argon2::password_hash;
 use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
-use argon2::{Algorithm, Argon2, Params, PasswordHash, PasswordHasher, PasswordVerifier, Version};
-use secrecy::{ExposeSecret, SecretString};
 use tokio::task::spawn_blocking;
-use tracing::{error, instrument};
-use zxcvbn::{Score, zxcvbn};
-
-#[allow(unused_imports)]
-use tracing::Level;
+use zxcvbn::Score;
+use zxcvbn::zxcvbn;
 
 // NIST Special Publication 800-63B
 // Section 3.1.1.2 Password Verifiers
 // https://pages.nist.gov/800-63-4/sp800-63b.html
 pub const MIN_PASSWORD_LENGTH: usize = 8;
 pub const MAX_PASSWORD_LENGTH: usize = 64;
-pub const PASSWORD_LENGTH_RANGE: std::ops::Range<usize> =
-    MIN_PASSWORD_LENGTH..MAX_PASSWORD_LENGTH + 1;
-pub const SAFE_PASSWORD_LENGTH_RANGE: std::ops::Range<usize> =
-    MIN_PASSWORD_LENGTH * 2..MAX_PASSWORD_LENGTH + 1;
+pub const PASSWORD_LENGTH_RANGE: std::ops::Range<usize> = MIN_PASSWORD_LENGTH..MAX_PASSWORD_LENGTH + 1;
+pub const SAFE_PASSWORD_LENGTH_RANGE: std::ops::Range<usize> = MIN_PASSWORD_LENGTH * 2..MAX_PASSWORD_LENGTH + 1;
 const MIN_PASSWORD_ENTROPY: Score = Score::Three;
 
 #[derive(thiserror::Error, Debug)]
@@ -28,96 +31,110 @@ pub enum PasswordError {
     TooLong,
     #[error("Password is weak")]
     Weak,
-    #[error("Invalid password hash: {0}")]
-    InvalidPasswordHash(String),
+    #[error(transparent)]
+    InvalidPasswordHash(#[from] password_hash::Error),
     #[error("Password mismatch")]
     PasswordMismatch,
-    #[error("Unexpected error: {0}")]
-    Unexpected(String),
+    #[error(transparent)]
+    UnexpectedError(#[from] color_eyre::eyre::Report),
 }
 
-#[derive(Debug, Clone)]
-pub struct HashedPassword(SecretString);
+pub type PasswordResult<T> = Result<T, PasswordError>;
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct HashedPassword(Secret);
 
 impl HashedPassword {
-    #[instrument(level = Level::TRACE)]
-    pub async fn parse(raw: &str, user: &str) -> Result<Self, PasswordError> {
-        if raw.len() < MIN_PASSWORD_LENGTH {
+    #[tracing::instrument(name = "HashedPasswordParsing", level = tracing::Level::TRACE, skip_all
+    )]
+    pub async fn parse(password: &Secret, user: &Email) -> PasswordResult<Self> {
+        let raw_password = password.expose();
+        if raw_password.len() < MIN_PASSWORD_LENGTH {
             return Err(PasswordError::TooShort);
         }
-        if raw.len() > MAX_PASSWORD_LENGTH {
+        if raw_password.len() > MAX_PASSWORD_LENGTH {
             return Err(PasswordError::TooLong);
         }
-        let entropy = zxcvbn(raw, &[user]);
+        let entropy = zxcvbn(raw_password, &[user.as_secret().expose()]);
         // Score 3 mean that the password can be cracked with 10^10 guesses or fewer.
         if entropy.score() < MIN_PASSWORD_ENTROPY {
             return Err(PasswordError::Weak);
         }
-        let hash = compute_password_hash(raw).await?;
-        let secret = SecretString::from(hash);
-        Ok(Self(secret))
+        let password_hash = compute_password_hash(password).await?;
+        Ok(Self(password_hash))
     }
 
-    #[instrument(level = Level::TRACE)]
-    pub fn parse_password_hash(hash: &str) -> Result<Self, PasswordError> {
+    pub fn parse_password_hash(hash: &Secret) -> PasswordResult<Self> {
+        let hash = hash.expose();
         match PasswordHash::new(hash) {
             Ok(password_hash) => {
-                let secret = SecretString::from(password_hash.to_string());
+                let secret = password_hash.to_string().into();
                 let hashed_password = Self(secret);
                 Ok(hashed_password)
             }
-            Err(error) => Err(PasswordError::InvalidPasswordHash(error.to_string())),
-        }
-    }
-
-    #[instrument(level = Level::TRACE)]
-    pub async fn verify_raw_password(&self, candidate: &str) -> Result<(), PasswordError> {
-        let candidate = candidate.to_owned();
-        let secret = self.0.expose_secret().to_owned();
-        let task = spawn_blocking(move || {
-            let expected_hash = PasswordHash::new(&secret)?;
-            Argon2::default().verify_password(candidate.as_bytes(), &expected_hash)
-        });
-        match task.await {
-            Ok(result) => match result {
-                Ok(()) => Ok(()),
-                Err(_) => Err(PasswordError::PasswordMismatch),
-            },
-            Err(error) => {
-                error!("{}", error);
-                Err(PasswordError::Unexpected(error.to_string()))
-            }
+            Err(error) => Err(PasswordError::InvalidPasswordHash(error)),
         }
     }
 
     #[must_use]
-    pub fn expose(&self) -> &str {
-        self.0.expose_secret()
+    pub fn as_secret(&self) -> &Secret {
+        &self.0
+    }
+
+    #[tracing::instrument(name = "RawPasswordVerification", level = tracing::Level::TRACE, skip_all
+    )]
+    pub async fn verify_password(&self, candidate: &Secret) -> PasswordResult<()> {
+        let current_span = tracing::Span::current();
+        let current_hash = self.as_secret().expose().to_owned();
+        let candidate = candidate.expose().to_owned();
+        spawn_blocking(move || {
+            current_span.in_scope(|| {
+                let expected_hash = PasswordHash::new(&current_hash)?;
+                Argon2::default().verify_password(candidate.as_bytes(), &expected_hash)
+            })
+        })
+        .await
+        .map_err(|error| {
+            tracing::error!("{}", error);
+            PasswordError::UnexpectedError(error.into())
+        })?
+        .map_err(|_| PasswordError::PasswordMismatch)
     }
 }
 
-impl AsRef<str> for HashedPassword {
-    fn as_ref(&self) -> &str {
-        self.0.expose_secret()
+impl PartialEq for HashedPassword {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_secret() == other.as_secret()
     }
 }
 
-#[instrument(level = Level::TRACE)]
-async fn compute_password_hash(password: &str) -> Result<String, PasswordError> {
-    let password = password.to_owned();
-    let task = spawn_blocking(move || -> Result<String, PasswordError> {
-        let salt: SaltString = SaltString::generate(&mut OsRng);
-        let params =
-            Params::new(15000, 2, 1, None).map_err(|e| PasswordError::Unexpected(e.to_string()))?;
-        let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-        let hash = argon2
-            .hash_password(password.as_bytes(), &salt)
-            .map_err(|e| PasswordError::Unexpected(e.to_string()))?;
-        Ok(hash.to_string())
-    });
-    task.await.unwrap_or_else(|error| {
-        error!("{}", error);
-        Err(PasswordError::Unexpected(error.to_string()))
+impl Eq for HashedPassword {}
+
+impl std::hash::Hash for HashedPassword {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.as_secret().hash(state);
+    }
+}
+
+#[tracing::instrument(name = "PasswordHashComputation", level = tracing::Level::TRACE, skip_all
+)]
+async fn compute_password_hash(password: &Secret) -> color_eyre::eyre::Result<Secret> {
+    let current_span = tracing::Span::current();
+    let password = password.expose().to_owned();
+    spawn_blocking(move || -> color_eyre::eyre::Result<String> {
+        current_span.in_scope(|| {
+            let salt: SaltString = SaltString::generate(&mut OsRng);
+            let params = Params::new(15000, 2, 1, None)?;
+            let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+            let hash = argon2.hash_password(password.as_bytes(), &salt)?;
+            Ok(hash.to_string())
+        })
+    })
+    .await?
+    .map(Secret::from)
+    .map_err(|error| {
+        tracing::error!("{}", error);
+        error
     })
 }
 
@@ -133,51 +150,56 @@ mod tests {
 
     #[tokio::test]
     async fn test_password_too_short() {
-        let user: String = SafeEmail().fake();
-        let password = "a".repeat(MIN_PASSWORD_LENGTH - 1);
+        let email = SafeEmail().fake::<String>().into();
+        let user = Email::parse(&email).unwrap();
+        let password = "a".repeat(MIN_PASSWORD_LENGTH - 1).into();
         let result = HashedPassword::parse(&password, &user).await;
         assert!(matches!(result, Err(PasswordError::TooShort)));
     }
 
     #[tokio::test]
     async fn test_password_too_long() {
-        let user: String = SafeEmail().fake();
-        let password = "a".repeat(MAX_PASSWORD_LENGTH + 1);
+        let email = SafeEmail().fake::<String>().into();
+        let user = Email::parse(&email).unwrap();
+        let password = "a".repeat(MAX_PASSWORD_LENGTH + 1).into();
         let result = HashedPassword::parse(&password, &user).await;
         assert!(matches!(result, Err(PasswordError::TooLong)));
     }
 
     #[tokio::test]
     async fn test_password_weak() {
-        let user: String = SafeEmail().fake();
+        let email = SafeEmail().fake::<String>().into();
+        let user = Email::parse(&email).unwrap();
         assert!(matches!(
-            HashedPassword::parse("password123", &user).await,
+            HashedPassword::parse(&"password123".into(), &user).await,
             Err(PasswordError::Weak)
         ));
         assert!(matches!(
-            HashedPassword::parse("12345678", &user).await,
+            HashedPassword::parse(&"12345678".into(), &user).await,
             Err(PasswordError::Weak)
         ));
         assert!(matches!(
-            HashedPassword::parse("qwertyuiop", &user).await,
+            HashedPassword::parse(&"qwertyuiop".into(), &user).await,
             Err(PasswordError::Weak)
         ));
     }
 
     #[tokio::test]
     async fn test_password_valid() {
-        let user: String = SafeEmail().fake();
-        let password = VALID_PASSWORD;
-        let result = HashedPassword::parse(password, &user).await;
+        let email = SafeEmail().fake::<String>().into();
+        let user = Email::parse(&email).unwrap();
+        let password = VALID_PASSWORD.into();
+        let result = HashedPassword::parse(&password, &user).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_password_exposure() {
-        let user: String = SafeEmail().fake();
-        let password_str = VALID_PASSWORD;
-        let password = HashedPassword::parse(password_str, &user).await.unwrap();
-        assert_ne!(password.expose(), password_str);
+        let email = SafeEmail().fake::<String>().into();
+        let user = Email::parse(&email).unwrap();
+        let unhashed = VALID_PASSWORD.into();
+        let hashed = HashedPassword::parse(&unhashed, &user).await.unwrap();
+        assert_ne!(hashed.as_secret().expose(), unhashed.expose());
     }
 
     #[test]
@@ -189,13 +211,14 @@ mod tests {
             Version::V0x13,
             Params::new(15000, 2, 1, None).unwrap(),
         );
-        let hash_string = argon2
+        let hash = argon2
             .hash_password(raw_password.as_bytes(), &salt)
             .unwrap()
             .to_string();
-        let hash_password = HashedPassword::parse_password_hash(&hash_string).unwrap();
-        assert_eq!(hash_password.as_ref(), hash_string.as_str());
-        assert!(hash_password.as_ref().starts_with("$argon2id$v=19$"));
+        let hash = hash.into();
+        let hashed = HashedPassword::parse_password_hash(&hash).unwrap();
+        assert_eq!(hashed.as_secret().expose(), hash.expose());
+        assert!(hashed.as_secret().expose().starts_with("$argon2id$v=19$"));
     }
 
     #[tokio::test]
@@ -207,28 +230,19 @@ mod tests {
             Version::V0x13,
             Params::new(15000, 2, 1, None).unwrap(),
         );
-        let hash_string = argon2
+        let hash = argon2
             .hash_password(raw_password.as_bytes(), &salt)
             .unwrap()
             .to_string();
-        let hash_password = HashedPassword::parse_password_hash(&hash_string).unwrap();
-        assert_eq!(hash_password.0.expose_secret(), hash_string.as_str());
-        assert!(
-            hash_password
-                .0
-                .expose_secret()
-                .starts_with("$argon2id$v=19$")
-        );
-        assert!(
-            hash_password
-                .verify_raw_password(raw_password)
-                .await
-                .is_ok()
-        );
+        let hash = hash.into();
+        let hashed = HashedPassword::parse_password_hash(&hash).unwrap();
+        assert_eq!(hashed.as_secret().expose(), hash.expose());
+        assert!(hashed.as_secret().expose().starts_with("$argon2id$v=19$"));
+        assert!(hashed.verify_password(&raw_password.into()).await.is_ok());
     }
 
     #[derive(Debug, Clone)]
-    struct ValidPasswordFixture(pub String);
+    struct ValidPasswordFixture(String);
 
     impl quickcheck::Arbitrary for ValidPasswordFixture {
         fn arbitrary(_: &mut Gen) -> Self {
@@ -238,14 +252,13 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore]
+    #[ignore = "Slow Property Test"]
     #[quickcheck]
-    async fn prop_valid_passwords_are_parsed_successfully(
-        valid_password: ValidPasswordFixture,
-    ) -> bool {
-        let user: String = SafeEmail().fake();
-        HashedPassword::parse(&valid_password.0, &user)
-            .await
-            .is_ok()
+    #[allow(clippy::needless_pass_by_value)]
+    async fn prop_valid_passwords_are_parsed_successfully(valid_password: ValidPasswordFixture) -> bool {
+        let email = SafeEmail().fake::<String>().into();
+        let user = Email::parse(&email).unwrap();
+        let password = valid_password.0.into();
+        HashedPassword::parse(&password, &user).await.is_ok()
     }
 }
