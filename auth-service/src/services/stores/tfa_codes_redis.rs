@@ -1,4 +1,3 @@
-use crate::config::consts;
 use crate::domain::Email;
 use crate::domain::LoginAttemptId;
 use crate::domain::TwoFactorAuthCode;
@@ -16,6 +15,7 @@ use tracing::Level;
 
 pub struct RedisTwoFactorAuthCodeStore {
     connection: RwLock<redis::Connection>,
+    tfa_ttl_secs: u64,
 }
 
 impl Debug for RedisTwoFactorAuthCodeStore {
@@ -27,8 +27,11 @@ impl Debug for RedisTwoFactorAuthCodeStore {
 }
 
 impl RedisTwoFactorAuthCodeStore {
-    pub fn new(connection: RwLock<redis::Connection>) -> Self {
-        Self { connection }
+    pub fn new(connection: RwLock<redis::Connection>, tfa_ttl_secs: u64) -> Self {
+        Self {
+            connection,
+            tfa_ttl_secs,
+        }
     }
 }
 
@@ -41,7 +44,7 @@ impl TwoFactorAuthCodeStore for RedisTwoFactorAuthCodeStore {
         login_attempt_id: LoginAttemptId,
         code: TwoFactorAuthCode,
     ) -> TwoFactorAuthCodeStoreResult<()> {
-        let ttl = u64::from(consts::AUTH_SERVICE_2FA_TTL_SECONDS_DEFAULT);
+        let ttl = u64::from(self.tfa_ttl_secs);
         let key = get_key(&email);
         let tuple = TwoFactorAuthTuple(
             login_attempt_id.as_secret().expose().to_owned(),

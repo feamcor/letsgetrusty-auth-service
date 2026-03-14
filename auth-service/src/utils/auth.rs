@@ -85,8 +85,7 @@ fn create_token(claims: &Claims, secret: &Secret) -> jsonwebtoken::errors::Resul
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::consts;
-    use crate::config::secret_from_environment;
+    use crate::config;
     use fake::Fake;
     use fake::faker::internet::en::SafeEmail;
 
@@ -95,13 +94,8 @@ mod tests {
         dotenvy::dotenv_override().ok();
         let email = SafeEmail().fake::<String>().into();
         let parsed_email = Email::parse(&email).unwrap();
-        let secret = secret_from_environment(consts::AUTH_SERVICE_JWT_SECRET).unwrap();
-        let cookie = generate_auth_cookie(
-            &parsed_email,
-            &secret,
-            i64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT),
-        )
-        .unwrap();
+        let secret = config::secret_from_environment(config::jwt::var::SECRET).unwrap();
+        let cookie = generate_auth_cookie(&parsed_email, &secret, i64::from(config::jwt::default::TTL)).unwrap();
         assert_eq!(cookie.name(), JWT_COOKIE_NAME);
         assert_eq!(cookie.value().split('.').count(), 3);
         assert_eq!(cookie.path(), Some("/"));
@@ -126,13 +120,8 @@ mod tests {
         dotenvy::dotenv_override().ok();
         let email = SafeEmail().fake::<String>().into();
         let parsed_email = Email::parse(&email).unwrap();
-        let secret = secret_from_environment(consts::AUTH_SERVICE_JWT_SECRET).unwrap();
-        let token = generate_auth_token(
-            &parsed_email,
-            &secret,
-            i64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT),
-        )
-        .unwrap();
+        let secret = config::secret_from_environment(config::jwt::var::SECRET).unwrap();
+        let token = generate_auth_token(&parsed_email, &secret, i64::from(config::jwt::default::TTL)).unwrap();
         assert_eq!(token.as_secret().expose().split('.').count(), 3);
     }
 
@@ -141,16 +130,11 @@ mod tests {
         dotenvy::dotenv_override().ok();
         let email = SafeEmail().fake::<String>().into();
         let parsed_email = Email::parse(&email).unwrap();
-        let secret = secret_from_environment(consts::AUTH_SERVICE_JWT_SECRET).unwrap();
-        let token = generate_auth_token(
-            &parsed_email,
-            &secret,
-            i64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT),
-        )
-        .unwrap();
+        let secret = config::secret_from_environment(config::jwt::var::SECRET).unwrap();
+        let token = generate_auth_token(&parsed_email, &secret, i64::from(config::jwt::default::TTL)).unwrap();
         let result = validate_token(
             &token,
-            &secret_from_environment(consts::AUTH_SERVICE_JWT_SECRET).unwrap(),
+            &config::secret_from_environment(config::jwt::var::SECRET).unwrap(),
         )
         .await
         .unwrap();
@@ -166,7 +150,7 @@ mod tests {
     async fn test_validate_token_with_invalid_token() {
         dotenvy::dotenv_override().ok();
         let token = Token::new(&"invalid_token".into());
-        let secret = secret_from_environment(consts::AUTH_SERVICE_JWT_SECRET).unwrap();
+        let secret = config::secret_from_environment(config::jwt::var::SECRET).unwrap();
         let result = validate_token(&token, &secret).await;
         assert!(result.is_err());
     }

@@ -4,8 +4,8 @@ pub use stores::*;
 mod store_banned_tokens;
 pub use store_banned_tokens::*;
 
-mod store_2fa_codes;
-pub use store_2fa_codes::*;
+mod store_tfa_codes;
+pub use store_tfa_codes::*;
 
 mod store_users;
 pub use store_users::*;

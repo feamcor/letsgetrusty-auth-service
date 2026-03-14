@@ -1,4 +1,4 @@
-use crate::config::LogLevel;
+use crate::config::log::LogLevel;
 use axum::body::Body;
 use axum::extract::Request;
 use axum::response::Response;
@@ -6,14 +6,12 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 pub fn init_tracing(log_level: &LogLevel) -> color_eyre::eyre::Result<()> {
-    let fmt_layer = tracing_subscriber::fmt::layer().compact();
-    let filter_layer = tracing_subscriber::EnvFilter::try_new::<String>(log_level.to_string())?;
     tracing_subscriber::registry()
-        .with(filter_layer)
-        .with(fmt_layer)
+        .with(tracing_subscriber::filter::LevelFilter::from_level(log_level.into()))
+        .with(tracing_subscriber::fmt::layer().compact())
         .with(tracing_error::ErrorLayer::default())
         .init();
-    tracing::info!("Initialized: Tracing");
+    tracing::info!("Initialized: Tracing [{}]", log_level);
     Ok(())
 }
 

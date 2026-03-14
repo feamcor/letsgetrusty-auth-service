@@ -1,6 +1,7 @@
 use crate::domain::Secret;
 use email_address::EmailAddress;
 use email_address::Options;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct Email(Secret);
@@ -35,6 +36,15 @@ impl Eq for Email {}
 impl std::hash::Hash for Email {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.as_secret().hash(state);
+    }
+}
+
+// this will allow clap to validate emails passed as command line arguments
+impl FromStr for Email {
+    type Err = EmailError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let email = Secret::from(s);
+        Self::parse(&email)
     }
 }
 

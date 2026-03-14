@@ -25,12 +25,11 @@ pub struct Application {
 }
 
 impl Application {
-    #[tracing::instrument(name = "ApplicationBuild", level = tracing::Level::TRACE, skip_all
-    )]
+    #[tracing::instrument(name = "ApplicationBuild", level = tracing::Level::TRACE, skip_all)]
     pub async fn build(state: AppState, address: SocketAddr) -> color_eyre::eyre::Result<Self> {
         let config = &state.config.inner();
         // Allow the app service to call the auth service
-        let allowed_origins = [format!("http://{}:{}", address.ip(), config.app_service_port).parse()?];
+        let allowed_origins = [format!("http://{}:{}", address.ip(), config.network.app_service_port).parse()?];
         let cors = CorsLayer::new()
             .allow_methods([Method::GET, Method::POST])
             .allow_credentials(true)
@@ -67,8 +66,7 @@ impl Application {
         Ok(application)
     }
 
-    #[tracing::instrument(name = "ApplicationRun", level = tracing::Level::TRACE, skip_all
-    )]
+    #[tracing::instrument(name = "ApplicationRun", level = tracing::Level::TRACE, skip_all)]
     pub async fn run(self) -> std::io::Result<()> {
         tracing::info!("Server listening on {}", self.address);
         let shutdown_token = CancellationToken::new();
@@ -78,8 +76,7 @@ impl Application {
     }
 }
 
-#[tracing::instrument(name = "ApplicationShutdown", level = tracing::Level::TRACE, skip_all
-)]
+#[tracing::instrument(name = "ApplicationShutdown", level = tracing::Level::TRACE, skip_all)]
 async fn shutdown_signal(shutdown_token: CancellationToken) {
     let ctrl_c = async {
         tokio::signal::ctrl_c().await.expect("failed to install CTRL+C handler");
@@ -105,39 +102,29 @@ async fn shutdown_signal(shutdown_token: CancellationToken) {
     tracing::info!("Shutdown signal received!");
 }
 
-#[tracing::instrument(name = "GetDatabasePool", level = tracing::Level::TRACE, skip_all
-)]
-pub async fn database_pool(
-    db_url: &Secret,
-    db_pool_min_size: u32,
-    db_pool_max_size: u32,
-) -> sqlx::Result<sqlx::PgPool> {
+#[tracing::instrument(name = "GetStorePool", level = tracing::Level::TRACE, skip_all)]
+pub async fn get_store_connection_pool(url: &Secret, pool_min: u32, pool_max: u32) -> sqlx::Result<sqlx::PgPool> {
     sqlx::postgres::PgPoolOptions::new()
-        .min_connections(db_pool_min_size)
-        .max_connections(db_pool_max_size)
-        .connect(db_url.expose())
+        .min_connections(pool_min)
+        .max_connections(pool_max)
+        .connect(url.expose())
         .await
 }
 
-#[tracing::instrument(name = "ConfigureDatabase", level = tracing::Level::TRACE, skip_all
-)]
-pub async fn configure_database(
-    db_url: &Secret,
-    db_pool_min_size: u32,
-    db_pool_max_size: u32,
-) -> sqlx::Result<sqlx::PgPool> {
-    let pool = database_pool(db_url, db_pool_min_size, db_pool_max_size).await?;
+#[tracing::instrument(name = "ConfigureStore", level = tracing::Level::TRACE, skip_all)]
+pub async fn configure_store(url: &Secret, pool_min: u32, pool_max: u32) -> sqlx::Result<sqlx::PgPool> {
+    let pool = get_store_connection_pool(url, pool_min, pool_max).await?;
     sqlx::migrate!().run(&pool).await?;
     Ok(pool)
 }
 
 #[tracing::instrument(name = "GetCacheClient", level = tracing::Level::TRACE, skip_all)]
-pub fn cache_client(cache_url: &Secret) -> redis::RedisResult<redis::Client> {
-    redis::Client::open(cache_url.expose())
+pub fn get_cache_client(url: &Secret) -> redis::RedisResult<redis::Client> {
+    redis::Client::open(url.expose())
 }
 
 #[tracing::instrument(name = "ConfigureCache", level = tracing::Level::TRACE, skip_all)]
-pub fn configure_cache(cache_url: &Secret) -> redis::RedisResult<redis::Connection> {
-    let client = cache_client(cache_url)?;
+pub fn configure_cache(url: &Secret) -> redis::RedisResult<redis::Connection> {
+    let client = get_cache_client(url)?;
     client.get_connection()
 }

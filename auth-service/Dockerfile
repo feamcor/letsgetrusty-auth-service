@@ -1,8 +1,9 @@
 # Start with image that has the Rust toolchain installed
-FROM rust:1.92-alpine AS chef
-USER root
+FROM rust:1.94-alpine3.23 AS chef
+#USER root
 # Add cargo-chef to cache dependencies
-RUN apk add --no-cache musl-dev & cargo install cargo-chef
+RUN apk add --no-cache musl-dev
+RUN cargo install cargo-chef
 WORKDIR /app
 
 FROM chef AS planner
@@ -21,8 +22,11 @@ RUN cargo build --release --bin auth-service
 
 # We do not need the Rust toolchain to run the binary!
 # Start with a minimal image and copy over the binary and assets folder.
-FROM debian:buster-slim AS runtime
+FROM alpine:3.23 AS runtime
 WORKDIR /app
+RUN apk add --no-cache ca-certificates
 COPY --from=builder /app/target/release/auth-service /usr/local/bin
 COPY --from=builder /app/assets /app/assets
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
 ENTRYPOINT ["/usr/local/bin/auth-service"]

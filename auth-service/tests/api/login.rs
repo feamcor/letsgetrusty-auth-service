@@ -59,6 +59,12 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled(ctx: &mut TestAp
         });
         let signup_response = app.post_signup(&signup_request).await;
         assert_eq!(signup_response.status(), StatusCode::CREATED);
+        wiremock::Mock::given(wiremock::matchers::path("/email"))
+            .and(wiremock::matchers::method("POST"))
+            .respond_with(wiremock::ResponseTemplate::new(200))
+            .expect(1)
+            .mount(app.email_server.as_ref().unwrap())
+            .await;
         let response = app.post_login(&request).await;
         assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
         assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());

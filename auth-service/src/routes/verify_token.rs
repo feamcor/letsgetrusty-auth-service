@@ -22,13 +22,15 @@ pub async fn verify_token(
 ) -> ApiResult<impl IntoResponse> {
     let config = &state.config;
     let token = Token::new(&request.token);
-    let jwt_secret = config
-        .inner()
-        .jwt_secret
-        .clone()
-        .ok_or(ApiError::UnexpectedError(color_eyre::eyre::eyre!(
-            "JWT secret is not set."
-        )))?;
+    let jwt_secret =
+        config
+            .inner()
+            .jwt
+            .jwt_secret
+            .clone()
+            .ok_or(ApiError::UnexpectedError(color_eyre::eyre::eyre!(
+                "JWT secret is not set."
+            )))?;
     validate_token(&token, &jwt_secret)
         .await
         .map_err(|_| ApiError::TokenInvalid)?;

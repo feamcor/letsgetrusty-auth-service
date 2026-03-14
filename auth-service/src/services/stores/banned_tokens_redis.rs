@@ -1,4 +1,3 @@
-use crate::config::consts;
 use crate::services::BannedTokenStore;
 use crate::services::BannedTokenStoreError;
 use crate::services::BannedTokenStoreResult;
@@ -15,6 +14,7 @@ use tracing::Level;
 
 pub struct RedisBannedTokenStore {
     connection: RwLock<redis::Connection>,
+    jwt_ttl_secs: u64,
 }
 
 impl Debug for RedisBannedTokenStore {
@@ -26,8 +26,11 @@ impl Debug for RedisBannedTokenStore {
 }
 
 impl RedisBannedTokenStore {
-    pub fn new(connection: RwLock<redis::Connection>) -> Self {
-        Self { connection }
+    pub fn new(connection: RwLock<redis::Connection>, jwt_ttl_secs: u64) -> Self {
+        Self {
+            connection,
+            jwt_ttl_secs,
+        }
     }
 }
 
@@ -35,7 +38,7 @@ impl RedisBannedTokenStore {
 impl BannedTokenStore for RedisBannedTokenStore {
     #[tracing::instrument(name = "AddBannedTokenIntoCache", level = Level::TRACE, skip_all)]
     async fn add_token(&self, token: &Token) -> BannedTokenStoreResult<()> {
-        let ttl = u64::from(consts::AUTH_SERVICE_JWT_TTL_SECONDS_DEFAULT);
+        let ttl = u64::from(self.jwt_ttl_secs);
         let key = token_key(token);
         let mut connection = self.connection.write().await;
         let options = SetOptions::default()

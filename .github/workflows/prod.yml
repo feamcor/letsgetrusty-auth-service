@@ -18,15 +18,15 @@ jobs:
       db:
         image: postgres:latest
         env:
-          POSTGRES_DB: ${{ vars.AUTH_SERVICE_DB_DATABASE }}
-          POSTGRES_PASSWORD: ${{ secrets.AUTH_SERVICE_DB_PASSWORD }}
-          POSTGRES_USER: ${{ vars.AUTH_SERVICE_DB_USERNAME }}
+          POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
         ports:
-          - ${{ vars.AUTH_SERVICE_DB_PORT }}:5432
+          - ${{ vars.POSTGRES_PORT }}:5432
       cache:
         image: redis:latest
         ports:
-          - ${{ vars.AUTH_SERVICE_CACHE_PORT }}:6379
+          - ${{ vars.REDIS_PORT }}:6379
 
     steps:
       # Checkout code from the repository
@@ -60,9 +60,32 @@ jobs:
       - name: Build and test auth-service code
         working-directory: ./auth-service
         run: |
-          export AUTH_SERVICE_DB_PASSWORD=${{ secrets.AUTH_SERVICE_DB_PASSWORD }}
+          export AUTH_SERVICE_CACHE_ENGINE=redis
+          export AUTH_SERVICE_CACHE_HOST=cache
+          export AUTH_SERVICE_CACHE_PORT=6379
+          export AUTH_SERVICE_DB_ENGINE=postgres
+          export AUTH_SERVICE_DB_HOST=db
+          export AUTH_SERVICE_DB_NAME=${{ vars.POSTGRES_DB }}
+          export AUTH_SERVICE_DB_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          export AUTH_SERVICE_DB_POOL_MAX=${{ vars.POSTGRES_POOL_MAX }}
+          export AUTH_SERVICE_DB_POOL_MIN=${{ vars.POSTGRES_POOL_MIN }}
+          export AUTH_SERVICE_DB_PORT=5432
+          export AUTH_SERVICE_DB_USER=${{ secrets.POSTGRES_USER }}
+          export AUTH_SERVICE_EMAIL_SERVICE=postmark
+          export AUTH_SERVICE_EMAIL_API_KEY=${{ secrets.POSTMARK_AUTH_TOKEN }}
+          export AUTH_SERVICE_EMAIL_API_TIMEOUT=${{ vars.POSTMARK_TIMEOUT }}
+          export AUTH_SERVICE_EMAIL_API_URL=${{ vars.POSTMARK_API_URL }}
+          export AUTH_SERVICE_EMAIL_SENDER=${{ vars.POSTMARK_SENDER }}
+          export AUTH_SERVICE_EMAIL_STREAM=${{ vars.POSTMARK_STREAM }}
           export AUTH_SERVICE_JWT_SECRET=${{ secrets.AUTH_SERVICE_JWT_SECRET }}
-          export DATABASE_URL=postgresql://${{ vars.AUTH_SERVICE_DB_USERNAME }}:${{ secrets.AUTH_SERVICE_DB_PASSWORD }}@${{ vars.AUTH_SERVICE_DB_HOSTNAME }}:${{ vars.AUTH_SERVICE_DB_PORT }}/${{ vars.AUTH_SERVICE_DB_DATABASE }}
+          export AUTH_SERVICE_JWT_TTL=${{ vars.AUTH_SERVICE_JWT_TTL }}
+          export AUTH_SERVICE_LOG_LEVEL=trace
+          export APP_SERVICE_PORT=8000
+          export AUTH_SERVICE_HOST_IPV4=127.0.0.1
+          export AUTH_SERVICE_PORT=3000
+          export AUTH_SERVICE_TFA_TTL=${{ vars.AUTH_SERVICE_TFA_TTL }}
+          export DATABASE_URL=postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@db:5432/${{ vars.POSTGRES_DB }}
+          export SQLX_OFFLINE=true
           cargo build --verbose
           cargo test --verbose
 
@@ -115,9 +138,30 @@ jobs:
           password: ${{ secrets.DROPLET_PASSWORD }}
           script: |
             cd ~
-            export AUTH_SERVICE_IP=${{ vars.DROPLET_IP }}
-            export AUTH_SERVICE_DB_PASSWORD=${{ secrets.AUTH_SERVICE_DB_PASSWORD }}
+            export AUTH_SERVICE_CACHE_ENGINE=redis
+            export AUTH_SERVICE_CACHE_HOST=cache
+            export AUTH_SERVICE_CACHE_PORT=6379
+            export AUTH_SERVICE_DB_ENGINE=postgres
+            export AUTH_SERVICE_DB_HOST=db
+            export AUTH_SERVICE_DB_NAME=${{ vars.POSTGRES_DB }}
+            export AUTH_SERVICE_DB_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            export AUTH_SERVICE_DB_POOL_MAX=${{ vars.POSTGRES_POOL_MAX }}
+            export AUTH_SERVICE_DB_POOL_MIN=${{ vars.POSTGRES_POOL_MIN }}
+            export AUTH_SERVICE_DB_PORT=5432
+            export AUTH_SERVICE_DB_USER=${{ secrets.POSTGRES_USER }}
+            export AUTH_SERVICE_EMAIL_SERVICE=postmark
+            export AUTH_SERVICE_EMAIL_API_KEY=${{ secrets.POSTMARK_AUTH_TOKEN }}
+            export AUTH_SERVICE_EMAIL_API_TIMEOUT=${{ vars.POSTMARK_TIMEOUT }}
+            export AUTH_SERVICE_EMAIL_API_URL=${{ vars.POSTMARK_API_URL }}
+            export AUTH_SERVICE_EMAIL_SENDER=${{ vars.POSTMARK_SENDER }}
+            export AUTH_SERVICE_EMAIL_STREAM=${{ vars.POSTMARK_STREAM }}
             export AUTH_SERVICE_JWT_SECRET=${{ secrets.AUTH_SERVICE_JWT_SECRET }}
+            export AUTH_SERVICE_JWT_TTL=${{ vars.AUTH_SERVICE_JWT_TTL }}
+            export AUTH_SERVICE_LOG_LEVEL=trace
+            export APP_SERVICE_PORT=8000
+            export AUTH_SERVICE_HOST_IPV4=${{ vars.DROPLET_IP }}
+            export AUTH_SERVICE_PORT=3000
+            export AUTH_SERVICE_TFA_TTL=${{ vars.AUTH_SERVICE_TFA_TTL }}
             docker compose down
             docker compose pull
             docker compose up -d

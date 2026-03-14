@@ -19,6 +19,7 @@ pub async fn logout(State(state): State<AppState>, jar: CookieJar) -> ApiResult<
     let token = Token::new(&cookie);
     let config = state.config.inner();
     let jwt_secret = config
+        .jwt
         .jwt_secret
         .clone()
         .ok_or(ApiError::UnexpectedError(color_eyre::eyre::eyre!(

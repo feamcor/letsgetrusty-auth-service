@@ -47,12 +47,13 @@ pub async fn verify_2fa(
     auth_code_store.remove_code(&email).await?;
     let config = &state.config.inner();
     let jwt_secret = config
+        .jwt
         .jwt_secret
         .clone()
         .ok_or(ApiError::UnexpectedError(color_eyre::eyre::eyre!(
             "JWT secret is not set."
         )))?;
-    let cookie = generate_auth_cookie(&email, &jwt_secret, i64::from(config.jwt_ttl_seconds))?;
+    let cookie = generate_auth_cookie(&email, &jwt_secret, i64::from(config.jwt.jwt_ttl))?;
     let jar = jar.add(cookie);
     Ok((jar, StatusCode::OK.into_response()))
 }

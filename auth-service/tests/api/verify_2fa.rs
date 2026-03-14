@@ -32,6 +32,12 @@ async fn verify_2fa_successful(ctx: &mut TestAppAsyncContext) {
     };
     let signup_response = app.post_signup(&signup_request).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
+    wiremock::Mock::given(wiremock::matchers::path("/email"))
+        .and(wiremock::matchers::method("POST"))
+        .respond_with(wiremock::ResponseTemplate::new(200))
+        .expect(1)
+        .mount(app.email_server.as_ref().unwrap())
+        .await;
     let login_request = LoginRequest {
         email: email.clone(),
         password: password.clone(),
@@ -96,6 +102,12 @@ async fn should_return_401_if_incorrect_credentials(ctx: &mut TestAppAsyncContex
     });
     let signup_response = app.post_signup(&signup_request).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
+    wiremock::Mock::given(wiremock::matchers::path("/email"))
+        .and(wiremock::matchers::method("POST"))
+        .respond_with(wiremock::ResponseTemplate::new(200))
+        .expect(1)
+        .mount(app.email_server.as_ref().unwrap())
+        .await;
     let login_request = json!({
         "email": &email,
         "password": &password,
@@ -131,6 +143,12 @@ async fn should_return_401_if_old_attempt_id(ctx: &mut TestAppAsyncContext) {
     });
     let signup_response = app.post_signup(&signup_request).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
+    wiremock::Mock::given(wiremock::matchers::path("/email"))
+        .and(wiremock::matchers::method("POST"))
+        .respond_with(wiremock::ResponseTemplate::new(200))
+        .expect(2)
+        .mount(app.email_server.as_ref().unwrap())
+        .await;
     let login_request = json!({
         "email": &email,
         "password": &password,
@@ -170,6 +188,12 @@ async fn should_return_401_if_old_auth_code(ctx: &mut TestAppAsyncContext) {
     });
     let signup_response = app.post_signup(&signup_request).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
+    wiremock::Mock::given(wiremock::matchers::path("/email"))
+        .and(wiremock::matchers::method("POST"))
+        .respond_with(wiremock::ResponseTemplate::new(200))
+        .expect(2)
+        .mount(app.email_server.as_ref().unwrap())
+        .await;
     let login_request = json!({
         "email": &email,
         "password": &password,
@@ -209,6 +233,12 @@ async fn should_return_401_if_same_code_twice(ctx: &mut TestAppAsyncContext) {
     });
     let signup_response = app.post_signup(&signup_request).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
+    wiremock::Mock::given(wiremock::matchers::path("/email"))
+        .and(wiremock::matchers::method("POST"))
+        .respond_with(wiremock::ResponseTemplate::new(200))
+        .expect(1)
+        .mount(app.email_server.as_ref().unwrap())
+        .await;
     let login_request = json!({
         "email": &email,
         "password": &password,
