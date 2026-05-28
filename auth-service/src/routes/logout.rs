@@ -1,5 +1,6 @@
 use crate::app_state::AppState;
 use crate::domain::Token;
+use crate::services::BannedTokenStoreError;
 use crate::utils::api_error::ApiError;
 use crate::utils::api_error::ApiResult;
 use crate::utils::auth::JWT_COOKIE_NAME;
@@ -28,13 +29,11 @@ pub async fn logout(State(state): State<AppState>, jar: CookieJar) -> ApiResult<
     validate_token(&token, &jwt_secret)
         .await
         .map_err(|_| ApiError::TokenInvalid)?;
+    match state.banned_token_store.inner().add_token(&token).await {
+        Ok(()) | Err(BannedTokenStoreError::TokenAlreadyExists) => {}
+        Err(error) => return Err(ApiError::UnexpectedError(error.into())),
+    }
     let cookie = create_auth_cookie(&Token::new(&String::new().into()));
     let jar = jar.remove(cookie);
-    let _ = state
-        .banned_token_store
-        .inner()
-        .add_token(&token)
-        .await
-        .map_err(|e| ApiError::UnexpectedError(e.into()));
     Ok((jar, StatusCode::OK.into_response()))
 }

@@ -1,6 +1,31 @@
 use crate::config;
 use crate::domain::Secret;
 use clap::ValueEnum;
+use percent_encoding::AsciiSet;
+use percent_encoding::CONTROLS;
+
+// Per RFC 3986 §3.2.1, the userinfo subcomponent permits `unreserved`, `sub-delims`, `:`, and
+// percent-encoded octets. `:` separates user from password, so we encode it too.
+const USERINFO_ENCODE_SET: &AsciiSet = &CONTROLS
+    .add(b' ')
+    .add(b'"')
+    .add(b'#')
+    .add(b'<')
+    .add(b'>')
+    .add(b'`')
+    .add(b'?')
+    .add(b'{')
+    .add(b'}')
+    .add(b'/')
+    .add(b':')
+    .add(b';')
+    .add(b'=')
+    .add(b'@')
+    .add(b'[')
+    .add(b'\\')
+    .add(b']')
+    .add(b'^')
+    .add(b'|');
 
 pub mod var {
     pub const ENGINE: &str = "AUTH_SERVICE_DB_ENGINE";
@@ -72,7 +97,7 @@ pub struct DatabaseConfig {
         env = var::POOL_MAX,
         default_value_t = default::POOL_MAX,
         help = "Maximum number of connections to the database.",
-        value_parser = clap::value_parser!(u32).range(1..100),
+        value_parser = clap::value_parser!(u32).range(1..=100),
     )]
     pub db_pool_max: u32,
 
@@ -81,7 +106,7 @@ pub struct DatabaseConfig {
         env = var::POOL_MIN,
         default_value_t = default::POOL_MIN,
         help = "Minimum number of connections to the database.",
-        value_parser = clap::value_parser!(u32).range(1..10),
+        value_parser = clap::value_parser!(u32).range(1..=100),
     )]
     pub db_pool_min: u32,
 
@@ -127,7 +152,7 @@ impl DatabaseConfig {
         let db_pool_max = std::env::var(var::POOL_MAX)
             .ok()
             .and_then(|s| s.parse::<u32>().ok())
-            .filter(|&size| (1..100).contains(&size))
+            .filter(|&size| (1..=100).contains(&size))
             .unwrap_or_else(|| {
                 tracing::warn!("using default value: {}={}", var::POOL_MAX, default::POOL_MAX,);
                 default::POOL_MAX
@@ -136,7 +161,7 @@ impl DatabaseConfig {
         let db_pool_min = std::env::var(var::POOL_MIN)
             .ok()
             .and_then(|s| s.parse::<u32>().ok())
-            .filter(|&size| (1..10).contains(&size))
+            .filter(|&size| (1..=100).contains(&size))
             .unwrap_or_else(|| {
                 tracing::warn!("using default value: {}={}", var::POOL_MIN, default::POOL_MIN,);
                 default::POOL_MIN
@@ -178,21 +203,19 @@ impl DatabaseConfig {
     #[must_use]
     pub fn db_url(&self, store_name: Option<&str>) -> Secret {
         let db_name = store_name.unwrap_or(&self.db_name);
+        let password = self.db_password.as_ref().unwrap_or_else(|| {
+            tracing::error!("{} is not set in the environment", var::PASSWORD);
+            panic!("{} is not set in the environment", var::PASSWORD)
+        });
+        // Percent-encode the user/password so URL-significant bytes (`@`, `:`, `/`, `?`, etc.)
+        // can't malform the connection string.
+        let user = percent_encoding::utf8_percent_encode(&self.db_user, USERINFO_ENCODE_SET);
+        let password = percent_encoding::utf8_percent_encode(password.expose(), USERINFO_ENCODE_SET);
         format!(
             "postgresql://{}:{}@{}:{}/{}?options=-c%20search_path%3Dauth,public",
-            self.db_user,
-            self.db_password
-                .as_ref()
-                .unwrap_or_else(|| {
-                    tracing::error!("{} is not set in the environment", var::PASSWORD);
-                    panic!("{} is not set in the environment", var::PASSWORD)
-                }) // should never happen
-                .expose(),
-            self.db_host,
-            self.db_port,
-            db_name
+            user, password, self.db_host, self.db_port, db_name,
         )
-            .into()
+        .into()
     }
 }
 

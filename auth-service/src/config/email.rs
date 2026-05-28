@@ -52,7 +52,7 @@ pub struct EmailServiceConfig {
         env = var::API_TIMEOUT,
         default_value_t = default::API_TIMEOUT,
         help = "Email service API timeout in milliseconds.",
-        value_parser = clap::value_parser!(u32).range(100..60000),
+        value_parser = clap::value_parser!(u32).range(100..=60000),
     )]
     pub email_api_timeout: u32,
 
@@ -96,7 +96,7 @@ impl EmailServiceConfig {
         let email_service_api_timeout = std::env::var(var::API_TIMEOUT)
             .ok()
             .and_then(|s| s.parse::<u32>().ok())
-            .filter(|&ttl| (100..60000).contains(&ttl))
+            .filter(|&ttl| (100..=60000).contains(&ttl))
             .unwrap_or_else(|| {
                 tracing::warn!("using default value: {}={}", var::API_TIMEOUT, default::API_TIMEOUT,);
                 default::API_TIMEOUT

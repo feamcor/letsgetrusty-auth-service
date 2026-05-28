@@ -23,7 +23,7 @@ impl LoginAttemptId {
 
 impl Default for LoginAttemptId {
     fn default() -> Self {
-        Self(uuid::Uuid::now_v7().to_string().into())
+        Self(uuid::Uuid::new_v4().to_string().into())
     }
 }
 

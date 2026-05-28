@@ -13,8 +13,11 @@ impl Email {
             allow_domain_literal: false,
             allow_display_text: false,
         };
-        match EmailAddress::parse_with_options(email.expose(), EMAIL_OPTIONS) {
-            Ok(_) => Ok(Self(email.to_owned())),
+        // Normalize to lowercase so equivalent addresses ("Alice@Example.com" vs
+        // "alice@example.com") hash and compare as the same identity.
+        let normalized: Secret = email.expose().trim().to_lowercase().into();
+        match EmailAddress::parse_with_options(normalized.expose(), EMAIL_OPTIONS) {
+            Ok(_) => Ok(Self(normalized)),
             Err(error) => Err(EmailError(error.into())),
         }
     }

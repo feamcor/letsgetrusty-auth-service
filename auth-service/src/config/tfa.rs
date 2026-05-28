@@ -13,7 +13,7 @@ pub struct TfaConfig {
         env = var::TTL,
         default_value_t = default::TTL,
         help = "TTL for TFA codes in seconds.",
-        value_parser = clap::value_parser!(u32).range(60..900),
+        value_parser = clap::value_parser!(u32).range(60..=900),
     )]
     pub tfa_ttl: u32,
 }
@@ -24,7 +24,7 @@ impl TfaConfig {
         let tfa_ttl = std::env::var(var::TTL)
             .ok()
             .and_then(|s| s.parse::<u32>().ok())
-            .filter(|&ttl| (60..900).contains(&ttl))
+            .filter(|&ttl| (60..=900).contains(&ttl))
             .unwrap_or_else(|| {
                 tracing::warn!("using default value: {}={}", var::TTL, default::TTL,);
                 default::TTL

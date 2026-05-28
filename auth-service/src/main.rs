@@ -65,7 +65,7 @@ async fn main() {
         CacheEngine::Redis => {
             let connection = configure_cache(&config.cache.cache_url()).expect("Failed to configure cache");
             let connection = RwLock::new(connection);
-            let store = RedisTwoFactorAuthCodeStore::new(connection, u64::from(config.jwt.jwt_ttl));
+            let store = RedisTwoFactorAuthCodeStore::new(connection, u64::from(config.tfa.tfa_ttl));
             TwoFactorAuthCodeStoreType::new(store)
         }
     };

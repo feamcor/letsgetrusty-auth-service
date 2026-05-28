@@ -7,13 +7,8 @@ pub struct MockEmailClient;
 
 #[async_trait::async_trait]
 impl EmailClient for MockEmailClient {
-    async fn send_email(&self, recipient: &Email, subject: &str, content: &str) -> EmailClientResult<()> {
-        tracing::info!(
-            "sent email to={} subject='{}' content='{}'",
-            recipient.as_secret().expose(),
-            subject,
-            content
-        );
+    async fn send_email(&self, _recipient: &Email, subject: &str, _content: &str) -> EmailClientResult<()> {
+        tracing::info!(subject = subject, "mock email sent");
         Ok(())
     }
 }

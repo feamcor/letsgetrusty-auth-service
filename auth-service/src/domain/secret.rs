@@ -1,5 +1,6 @@
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
+use subtle::ConstantTimeEq;
 
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct Secret(SecretString);
@@ -24,7 +25,9 @@ impl std::fmt::Display for Secret {
 
 impl PartialEq for Secret {
     fn eq(&self, other: &Self) -> bool {
-        self.expose() == other.expose()
+        // Use constant-time comparison so callers (Token, TwoFactorAuthCode, LoginAttemptId,
+        // HashedPassword) can't leak the secret one byte at a time through response timing.
+        self.expose().as_bytes().ct_eq(other.expose().as_bytes()).into()
     }
 }
 

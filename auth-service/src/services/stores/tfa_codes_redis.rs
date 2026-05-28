@@ -72,9 +72,10 @@ impl TwoFactorAuthCodeStore for RedisTwoFactorAuthCodeStore {
     async fn get_code(&self, email: &Email) -> TwoFactorAuthCodeStoreResult<(LoginAttemptId, TwoFactorAuthCode)> {
         let key = get_key(email);
         let mut connection = self.connection.write().await;
-        let value: String = connection
+        let value: Option<String> = connection
             .get(key)
-            .map_err(|_| TwoFactorAuthCodeStoreError::CodeNotFound)?;
+            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
+        let value = value.ok_or(TwoFactorAuthCodeStoreError::CodeNotFound)?;
         let tuple: TwoFactorAuthTuple =
             serde_json::from_str(&value).map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
         let login_attempt_id = LoginAttemptId::parse(&tuple.0.into())

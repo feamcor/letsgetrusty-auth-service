@@ -20,7 +20,7 @@ pub struct JwtConfig {
         env = var::TTL,
         default_value_t = default::TTL,
         help = "TTL for JWTs in seconds.",
-        value_parser = clap::value_parser!(u32).range(300..3600),
+        value_parser = clap::value_parser!(u32).range(300..=3600),
     )]
     pub jwt_ttl: u32,
 }
@@ -31,7 +31,7 @@ impl JwtConfig {
         let jwt_ttl = std::env::var(var::TTL)
             .ok()
             .and_then(|s| s.parse::<u32>().ok())
-            .filter(|&ttl| (300..3600).contains(&ttl))
+            .filter(|&ttl| (300..=3600).contains(&ttl))
             .unwrap_or_else(|| {
                 tracing::warn!("using default value: {}={}", var::TTL, default::TTL,);
                 default::TTL

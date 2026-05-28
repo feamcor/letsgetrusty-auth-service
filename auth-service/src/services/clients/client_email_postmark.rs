@@ -49,7 +49,16 @@ struct PostmarkSendEmailRequest<'a> {
 impl EmailClient for PostmarkEmailClient {
     #[tracing::instrument(name = "SendingEmail", skip_all)]
     async fn send_email(&self, recipient: &Email, subject: &str, content: &str) -> EmailClientResult<()> {
-        let url = self.api_url.clone().join("email").unwrap();
+        let mut url = self.api_url.clone();
+        // Ensure the configured base URL is treated as a directory so `join` appends rather than
+        // replacing the last path segment (e.g. "/v1" + "email" → "/v1/email", not "/email").
+        if !url.path().ends_with('/') {
+            let path = format!("{}/", url.path());
+            url.set_path(&path);
+        }
+        let url = url
+            .join("email")
+            .map_err(|error| EmailClientError::UnexpectedError(error.into()))?;
         let request_body = PostmarkSendEmailRequest {
             from: self.sender.as_secret().expose(),
             to: recipient.as_secret().expose(),
