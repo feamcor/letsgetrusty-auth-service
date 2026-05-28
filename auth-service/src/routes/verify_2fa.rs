@@ -13,7 +13,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum_extra::extract::CookieJar;
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Verify2FARequest {
     pub email: Secret,

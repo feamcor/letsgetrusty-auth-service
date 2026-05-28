@@ -41,7 +41,7 @@ pub enum PasswordError {
 
 pub type PasswordResult<T> = Result<T, PasswordError>;
 
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct HashedPassword(Secret);
 
 impl HashedPassword {

@@ -51,11 +51,25 @@ impl std::hash::Hash for Secret {
     }
 }
 
+/// Default `Serialize` deliberately redacts the inner value. Types that legitimately need to
+/// emit the cleartext (e.g. `LoginAttemptId` in a JSON response body) must implement `Serialize`
+/// themselves, or annotate the field with `#[serde(serialize_with = "Secret::expose_serializer")]`.
 impl serde::Serialize for Secret {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&self.expose())
+        serializer.serialize_str("[REDACTED]")
+    }
+}
+
+impl Secret {
+    /// Opt-in serializer that emits the cleartext. Intended for `#[serde(serialize_with = ...)]`
+    /// on individual fields whose plaintext must reach the wire.
+    pub fn expose_serializer<S>(secret: &Secret, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(secret.expose())
     }
 }

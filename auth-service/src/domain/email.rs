@@ -3,7 +3,7 @@ use email_address::EmailAddress;
 use email_address::Options;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct Email(Secret);
 
 impl Email {
