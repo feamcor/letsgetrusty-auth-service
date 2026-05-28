@@ -77,7 +77,9 @@ impl TestApp {
             }
         };
         let two_factor_auth_code_store_type = match config.cache.cache_engine {
-            CacheEngine::Memory => TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default()),
+            CacheEngine::Memory => {
+                TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::new(u64::from(config.tfa.tfa_ttl)))
+            }
             CacheEngine::Redis => {
                 let connection = configure_cache(&config.cache.cache_url()).expect("Failed to configure cache");
                 let connection = RwLock::new(connection);
