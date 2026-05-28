@@ -124,6 +124,13 @@ async fn main() {
     );
     tracing::info!("Initialized: App State");
 
+    // Pre-compute the user-enumeration decoy hash on the blocking pool so the first login that
+    // hits the UserNotFound branch doesn't pay ~50–100 ms of Argon2id on a tokio worker thread.
+    tokio::task::spawn_blocking(auth_service::services::warm_decoy_password_hash)
+        .await
+        .expect("decoy warm-up task panicked");
+    tracing::info!("Initialized: decoy password hash");
+
     Application::build(app_state, socket_addr)
         .await
         .expect("Failed to build app")

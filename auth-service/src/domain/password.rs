@@ -129,19 +129,24 @@ pub fn validate_password_strength(password: &Secret, user: &Email) -> PasswordRe
     Ok(())
 }
 
+/// Synchronous, blocking Argon2id hash. Suitable for `spawn_blocking` or one-shot startup work.
+/// Centralized so any change to algorithm/version/params applies everywhere a hash is produced
+/// (the decoy in `store_users.rs` shares this).
+pub fn compute_password_hash_sync(password: &[u8]) -> color_eyre::eyre::Result<String> {
+    let salt: SaltString = SaltString::generate(&mut OsRng);
+    let params = Params::new(ARGON2_MEMORY_KIB, ARGON2_ITERATIONS, ARGON2_PARALLELISM, None)?;
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+    let hash = argon2.hash_password(password, &salt)?;
+    Ok(hash.to_string())
+}
+
 #[tracing::instrument(name = "PasswordHashComputation", level = tracing::Level::TRACE, skip_all
 )]
 async fn compute_password_hash(password: &Secret) -> color_eyre::eyre::Result<Secret> {
     let current_span = tracing::Span::current();
     let password = password.expose().to_owned();
     spawn_blocking(move || -> color_eyre::eyre::Result<String> {
-        current_span.in_scope(|| {
-            let salt: SaltString = SaltString::generate(&mut OsRng);
-            let params = Params::new(ARGON2_MEMORY_KIB, ARGON2_ITERATIONS, ARGON2_PARALLELISM, None)?;
-            let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-            let hash = argon2.hash_password(password.as_bytes(), &salt)?;
-            Ok(hash.to_string())
-        })
+        current_span.in_scope(|| compute_password_hash_sync(password.as_bytes()))
     })
     .await?
     .map(Secret::from)

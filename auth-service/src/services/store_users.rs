@@ -1,17 +1,8 @@
-use crate::domain::ARGON2_ITERATIONS;
-use crate::domain::ARGON2_MEMORY_KIB;
-use crate::domain::ARGON2_PARALLELISM;
 use crate::domain::Email;
 use crate::domain::HashedPassword;
 use crate::domain::Secret;
 use crate::domain::User;
-use argon2::Algorithm;
-use argon2::Argon2;
-use argon2::Params;
-use argon2::PasswordHasher;
-use argon2::Version;
-use argon2::password_hash::SaltString;
-use argon2::password_hash::rand_core::OsRng;
+use crate::domain::compute_password_hash_sync;
 use std::sync::LazyLock;
 
 #[derive(thiserror::Error, Debug)]
@@ -30,19 +21,25 @@ pub type UserStoreResult<T> = Result<T, UserStoreError>;
 
 // Throwaway Argon2id hash used to equalize wall-clock time on the user-not-found branch of
 // validate_user, eliminating the user-enumeration timing oracle. Generated once at first use
-// with the same Argon2 parameters as production hashes, so the decoy verify takes the same
-// time as a real one.
+// with the same Argon2 parameters as production hashes (via compute_password_hash_sync),
+// so the decoy verify takes the same time as a real one — and so any future parameter change
+// in domain/password.rs automatically applies here.
+//
+// Note: this LazyLock initializer runs `compute_password_hash_sync` (~50-100 ms blocking work).
+// Call `warm_decoy_password_hash()` from an off-runtime context at startup to avoid blocking
+// a tokio worker on the first unknown-email login.
 static DECOY_PASSWORD_HASH: LazyLock<HashedPassword> = LazyLock::new(|| {
-    let salt = SaltString::generate(&mut OsRng);
-    let params = Params::new(ARGON2_MEMORY_KIB, ARGON2_ITERATIONS, ARGON2_PARALLELISM, None)
-        .expect("decoy Argon2 params valid");
-    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-    let hash = argon2
-        .hash_password(b"decoy-password-not-real", &salt)
-        .expect("decoy hash computes");
-    let hash: Secret = hash.to_string().into();
+    let hash_string = compute_password_hash_sync(b"decoy-password-not-real").expect("decoy hash computes");
+    let hash: Secret = hash_string.into();
     HashedPassword::parse_password_hash(&hash).expect("decoy hash parses")
 });
+
+/// Force-initialize the decoy hash off the tokio runtime so the first login that hits the
+/// UserNotFound branch doesn't pay the Argon2id cost on a worker thread. Call once from
+/// startup, ideally wrapped in `tokio::task::spawn_blocking`.
+pub fn warm_decoy_password_hash() {
+    let _ = &*DECOY_PASSWORD_HASH;
+}
 
 #[async_trait::async_trait]
 pub trait UserStore: Send + Sync {
