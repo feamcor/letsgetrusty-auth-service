@@ -1,3 +1,6 @@
+use crate::domain::ARGON2_ITERATIONS;
+use crate::domain::ARGON2_MEMORY_KIB;
+use crate::domain::ARGON2_PARALLELISM;
 use crate::domain::Email;
 use crate::domain::HashedPassword;
 use crate::domain::Secret;
@@ -31,7 +34,8 @@ pub type UserStoreResult<T> = Result<T, UserStoreError>;
 // time as a real one.
 static DECOY_PASSWORD_HASH: LazyLock<HashedPassword> = LazyLock::new(|| {
     let salt = SaltString::generate(&mut OsRng);
-    let params = Params::new(15000, 2, 1, None).expect("decoy Argon2 params valid");
+    let params = Params::new(ARGON2_MEMORY_KIB, ARGON2_ITERATIONS, ARGON2_PARALLELISM, None)
+        .expect("decoy Argon2 params valid");
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
     let hash = argon2
         .hash_password(b"decoy-password-not-real", &salt)

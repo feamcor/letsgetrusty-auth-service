@@ -23,6 +23,12 @@ pub const PASSWORD_LENGTH_RANGE: std::ops::Range<usize> = MIN_PASSWORD_LENGTH..M
 pub const SAFE_PASSWORD_LENGTH_RANGE: std::ops::Range<usize> = MIN_PASSWORD_LENGTH * 2..MAX_PASSWORD_LENGTH + 1;
 const MIN_PASSWORD_ENTROPY: Score = Score::Three;
 
+// OWASP Password Storage Cheat Sheet (Argon2id, t=2, p=1): m >= 19 MiB.
+// https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
+pub const ARGON2_MEMORY_KIB: u32 = 19456;
+pub const ARGON2_ITERATIONS: u32 = 2;
+pub const ARGON2_PARALLELISM: u32 = 1;
+
 #[derive(thiserror::Error, Debug)]
 pub enum PasswordError {
     #[error("Password is too short (min length is {MIN_PASSWORD_LENGTH})")]
@@ -124,7 +130,7 @@ async fn compute_password_hash(password: &Secret) -> color_eyre::eyre::Result<Se
     spawn_blocking(move || -> color_eyre::eyre::Result<String> {
         current_span.in_scope(|| {
             let salt: SaltString = SaltString::generate(&mut OsRng);
-            let params = Params::new(15000, 2, 1, None)?;
+            let params = Params::new(ARGON2_MEMORY_KIB, ARGON2_ITERATIONS, ARGON2_PARALLELISM, None)?;
             let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
             let hash = argon2.hash_password(password.as_bytes(), &salt)?;
             Ok(hash.to_string())
@@ -209,7 +215,7 @@ mod tests {
         let argon2 = Argon2::new(
             Algorithm::Argon2id,
             Version::V0x13,
-            Params::new(15000, 2, 1, None).unwrap(),
+            Params::new(ARGON2_MEMORY_KIB, ARGON2_ITERATIONS, ARGON2_PARALLELISM, None).unwrap(),
         );
         let hash = argon2
             .hash_password(raw_password.as_bytes(), &salt)
@@ -228,7 +234,7 @@ mod tests {
         let argon2 = Argon2::new(
             Algorithm::Argon2id,
             Version::V0x13,
-            Params::new(15000, 2, 1, None).unwrap(),
+            Params::new(ARGON2_MEMORY_KIB, ARGON2_ITERATIONS, ARGON2_PARALLELISM, None).unwrap(),
         );
         let hash = argon2
             .hash_password(raw_password.as_bytes(), &salt)
