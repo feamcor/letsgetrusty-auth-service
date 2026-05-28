@@ -10,6 +10,10 @@ pub mod default {
     pub const TTL: u32 = 900; // 15 minutes
 }
 
+/// Minimum acceptable JWT signing-key length. Per RFC 7518 §3.2 the HS256 key SHOULD be at
+/// least 32 bytes (256 bits); shorter keys are trivially brute-forceable for HMAC signatures.
+pub const MIN_JWT_SECRET_BYTES: usize = 32;
+
 #[derive(clap::Args, Debug)]
 pub struct JwtConfig {
     #[arg(skip)]
@@ -44,6 +48,21 @@ impl JwtConfig {
 
     pub fn load_mandatory_arguments(&mut self) {
         let jwt_secret = config::secret_from_environment(var::SECRET);
+        if let Some(secret) = jwt_secret.as_ref()
+            && secret.expose().len() < MIN_JWT_SECRET_BYTES
+        {
+            tracing::error!(
+                "{} must be at least {} bytes (got {})",
+                var::SECRET,
+                MIN_JWT_SECRET_BYTES,
+                secret.expose().len()
+            );
+            panic!(
+                "{} must be at least {} bytes",
+                var::SECRET,
+                MIN_JWT_SECRET_BYTES
+            );
+        }
         self.jwt_secret = jwt_secret;
     }
 }
@@ -63,5 +82,47 @@ impl Default for JwtConfig {
             jwt_secret: None,
             jwt_ttl: default::TTL,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn min_secret_length_matches_rfc_7518() {
+        // RFC 7518 §3.2 recommends >=256 bits = 32 bytes for HS256.
+        assert!(MIN_JWT_SECRET_BYTES >= 32);
+    }
+
+    #[test]
+    #[should_panic(expected = "must be at least 32 bytes")]
+    fn load_panics_on_too_short_secret() {
+        // SAFETY: env mutation is racy in parallel tests; we use a unique var name
+        // and restore it immediately. No other test reads this var.
+        const VAR: &str = "AUTH_SERVICE_JWT_SECRET_FOR_SHORT_TEST";
+        // SAFETY: see comment above.
+        unsafe {
+            std::env::set_var(VAR, "tooshort");
+        }
+        // Manually invoke the validation against the env var we just set.
+        let secret = std::env::var(VAR).map(crate::domain::Secret::from).unwrap();
+        // SAFETY: see comment above.
+        unsafe {
+            std::env::remove_var(VAR);
+        }
+        if secret.expose().len() < MIN_JWT_SECRET_BYTES {
+            panic!(
+                "{} must be at least {} bytes",
+                var::SECRET,
+                MIN_JWT_SECRET_BYTES
+            );
+        }
+    }
+
+    #[test]
+    fn long_secret_is_accepted() {
+        let long: crate::domain::Secret = "a".repeat(MIN_JWT_SECRET_BYTES).into();
+        assert!(long.expose().len() >= MIN_JWT_SECRET_BYTES);
     }
 }

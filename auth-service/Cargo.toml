@@ -28,7 +28,7 @@ sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio
 thiserror = { version = "2.0.18" }
 tokio = { version = "1.49.0", features = ["full"] }
 tokio-util = { version = "0.7.18" }
-tower-http = { version = "0.6.8", features = ["cors", "fs", "trace"] }
+tower-http = { version = "0.6.8", features = ["cors", "fs", "set-header", "trace"] }
 tracing = { version = "0.1.44" }
 tracing-error = { version = "0.2.1" }
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }

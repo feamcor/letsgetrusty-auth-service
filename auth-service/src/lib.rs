@@ -1,5 +1,7 @@
 use crate::app_state::AppState;
 use crate::domain::Secret;
+use axum::http::HeaderName;
+use axum::http::HeaderValue;
 use axum::http::Method;
 use axum::routing::get;
 use axum::routing::post;
@@ -9,6 +11,7 @@ use tokio_util::sync::CancellationToken;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 use tower_http::services::ServeFile;
+use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 
 pub mod app_state;
@@ -48,11 +51,28 @@ impl Application {
             .route("/verify-2fa", post(routes::verify_2fa))
             .route("/verify-token", post(routes::verify_token));
         tracing::info!("Initialized: API routes");
+        // Conservative defense-in-depth security headers. None of these protect against
+        // logic bugs in this service, but they neutralize common browser-side footguns:
+        // - X-Content-Type-Options: stop MIME sniffing of static assets we serve.
+        // - X-Frame-Options: refuse to be framed (clickjacking).
+        // - Referrer-Policy: don't leak the auth-service URL on outbound navigation.
         let router = axum::Router::new()
             .fallback_service(assets_dir)
             .nest("/api", apis)
             .with_state(state)
             .layer(cors)
+            .layer(SetResponseHeaderLayer::overriding(
+                HeaderName::from_static("x-content-type-options"),
+                HeaderValue::from_static("nosniff"),
+            ))
+            .layer(SetResponseHeaderLayer::overriding(
+                HeaderName::from_static("x-frame-options"),
+                HeaderValue::from_static("DENY"),
+            ))
+            .layer(SetResponseHeaderLayer::overriding(
+                HeaderName::from_static("referrer-policy"),
+                HeaderValue::from_static("strict-origin-when-cross-origin"),
+            ))
             .layer(
                 TraceLayer::new_for_http()
                     .make_span_with(utils::tracing::make_span_with_request_id)
