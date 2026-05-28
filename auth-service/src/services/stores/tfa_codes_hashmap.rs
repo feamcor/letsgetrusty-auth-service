@@ -56,10 +56,22 @@ impl TwoFactorAuthCodeStore for HashmapTwoFactorAuthCodeStore {
                 return Ok((id.clone(), code.clone()));
             }
         }
-        // Either absent or expired — sweep the stale entry (if any) and surface CodeNotFound.
+        // Either absent or expired. Re-check under the write lock before removing: a concurrent
+        // add_code between releasing the read lock and acquiring the write lock could have
+        // inserted a fresh entry that we must NOT delete.
         let mut codes = self.codes.write().await;
-        codes.remove(email);
-        Err(TwoFactorAuthCodeStoreError::CodeNotFound)
+        match codes.get(email) {
+            Some((id, code, stored_at)) if stored_at.elapsed() < self.ttl => {
+                // A concurrent add_code raced in with a fresh entry — return it instead of sweeping.
+                Ok((id.clone(), code.clone()))
+            }
+            Some(_) => {
+                // Confirmed stale under the write lock; sweep and report miss.
+                codes.remove(email);
+                Err(TwoFactorAuthCodeStoreError::CodeNotFound)
+            }
+            None => Err(TwoFactorAuthCodeStoreError::CodeNotFound),
+        }
     }
 }
 

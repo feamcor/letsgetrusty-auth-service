@@ -5,11 +5,20 @@ use percent_encoding::AsciiSet;
 use percent_encoding::CONTROLS;
 
 // Per RFC 3986 §3.2.1, the userinfo subcomponent permits `unreserved`, `sub-delims`, `:`, and
-// percent-encoded octets. `:` separates user from password, so we encode it too.
+// percent-encoded octets. We encode every byte that has structural meaning in either the URL
+// grammar itself OR in legacy URL parsers used by Postgres clients:
+//   - `:` separates user from password
+//   - `@` separates userinfo from host
+//   - `/`, `?`, `#` mark path/query/fragment boundaries
+//   - `%` MUST be encoded so a literal `%` doesn't become a valid percent-escape prefix
+//   - `+` is interpreted as space by some legacy parsers
+//   - other punctuation may confuse downstream consumers; we err on the side of encoding.
 const USERINFO_ENCODE_SET: &AsciiSet = &CONTROLS
     .add(b' ')
     .add(b'"')
     .add(b'#')
+    .add(b'%')
+    .add(b'+')
     .add(b'<')
     .add(b'>')
     .add(b'`')
@@ -198,6 +207,16 @@ impl DatabaseConfig {
             let db_password = config::secret_from_environment(var::PASSWORD);
             self.db_password = db_password;
         }
+        // Cross-field invariant: sqlx panics at runtime if min_connections > max_connections.
+        // Catch the misconfiguration here so the operator sees a clean startup error.
+        assert!(
+            self.db_pool_min <= self.db_pool_max,
+            "{} ({}) must be <= {} ({})",
+            var::POOL_MIN,
+            self.db_pool_min,
+            var::POOL_MAX,
+            self.db_pool_max,
+        );
     }
 
     #[must_use]
@@ -300,5 +319,21 @@ mod tests {
     fn store_name_override_is_used_in_path() {
         let url = config_with("alice", "pwd").db_url(Some("test_db"));
         assert!(url.expose().contains("/test_db?"), "got: {}", url.expose());
+    }
+
+    #[test]
+    fn password_with_percent_is_encoded() {
+        // A literal '%' must be percent-encoded itself, otherwise `%xy` becomes a valid percent-
+        // escape prefix to the URL parser and corrupts the password.
+        let url = config_with("alice", "a%xyzb").db_url(None);
+        assert!(!url.expose().contains("a%xyzb"), "literal % leaked: {}", url.expose());
+        assert!(url.expose().contains("a%25xyzb"), "got: {}", url.expose());
+    }
+
+    #[test]
+    fn password_with_plus_is_encoded() {
+        // Some legacy URL parsers decode '+' as space; encoding it preserves the literal byte.
+        let url = config_with("alice", "a+b").db_url(None);
+        assert!(url.expose().contains("a%2Bb"), "got: {}", url.expose());
     }
 }

@@ -76,7 +76,9 @@ impl TestApp {
             ),
         };
         let banned_token_store_type = match config.cache.cache_engine {
-            CacheEngine::Memory => BannedTokenStoreType::new(HashsetBannedTokenStore::default()),
+            CacheEngine::Memory => {
+                BannedTokenStoreType::new(HashsetBannedTokenStore::new(u64::from(config.jwt.jwt_ttl)))
+            }
             CacheEngine::Redis => {
                 let connection = cache_connection.clone().expect("cache connection initialised above");
                 BannedTokenStoreType::new(RedisBannedTokenStore::new(connection, u64::from(config.jwt.jwt_ttl)))

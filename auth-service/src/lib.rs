@@ -34,9 +34,12 @@ impl Application {
         // The CORS allow-origin must match the browser's Origin header (scheme + host + port of
         // the app-service as seen by the user-agent), NOT auth-service's bind address — those
         // diverge under 0.0.0.0 / Docker. Use the configured override, or `localhost:{app_port}`.
+        // Use `.origin().ascii_serialization()` so we strip any accidental path/query/fragment
+        // from the configured URL (browsers only send scheme://host[:port] as Origin).
         let allowed_origin = config.network.resolved_allowed_origin();
-        tracing::info!("CORS allow-origin: {}", allowed_origin);
-        let allowed_origins = [allowed_origin.as_str().trim_end_matches('/').parse()?];
+        let allowed_origin_value = allowed_origin.origin().ascii_serialization();
+        tracing::info!("CORS allow-origin: {}", allowed_origin_value);
+        let allowed_origins = [allowed_origin_value.parse()?];
         let cors = CorsLayer::new()
             .allow_methods([Method::GET, Method::POST])
             .allow_credentials(true)
