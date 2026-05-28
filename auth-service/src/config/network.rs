@@ -1,4 +1,5 @@
 pub mod var {
+    pub const ALLOWED_ORIGIN: &str = "AUTH_SERVICE_ALLOWED_ORIGIN";
     pub const APP_SERVICE_PORT: &str = "APP_SERVICE_PORT";
     pub const HOST_IPV4: &str = "AUTH_SERVICE_HOST_IPV4";
     pub const HOST_IPV6: &str = "AUTH_SERVICE_HOST_IPV6";
@@ -44,6 +45,29 @@ pub struct NetworkConfig {
         value_parser = clap::value_parser!(u16).range(1024..),
     )]
     pub app_service_port: u16,
+
+    /// Browser-visible Origin allowed by CORS. Must match the scheme/host/port the user-agent
+    /// sends in its `Origin` header (i.e. how the app-service is reached, not where auth-service
+    /// is bound). When unset, defaults to `http://localhost:{app_service_port}`.
+    #[arg(
+        long,
+        env = var::ALLOWED_ORIGIN,
+        help = "Browser-visible URL of the application service for CORS allow-origin.",
+        value_parser,
+    )]
+    pub allowed_origin: Option<url::Url>,
+}
+
+impl NetworkConfig {
+    /// Resolved CORS allow-origin. Falls back to `http://localhost:{app_service_port}` so local
+    /// dev / Docker browsers (which connect via `localhost`) work without extra config.
+    #[must_use]
+    pub fn resolved_allowed_origin(&self) -> url::Url {
+        self.allowed_origin.clone().unwrap_or_else(|| {
+            url::Url::parse(&format!("http://localhost:{}", self.app_service_port))
+                .expect("default allowed origin must be a valid URL")
+        })
+    }
 }
 
 impl NetworkConfig {
@@ -91,11 +115,16 @@ impl NetworkConfig {
                 default::PORT
             });
 
+        let allowed_origin = std::env::var(var::ALLOWED_ORIGIN)
+            .ok()
+            .and_then(|s| s.parse::<url::Url>().ok());
+
         Self {
             app_service_port,
             ipv4,
             ipv6,
             port,
+            allowed_origin,
         }
     }
 }
@@ -107,6 +136,7 @@ impl std::fmt::Display for NetworkConfig {
             .field("ipv4", &self.ipv4)
             .field("ipv6", &self.ipv6)
             .field("port", &self.port)
+            .field("allowed_origin", &self.allowed_origin)
             .finish()
     }
 }
@@ -118,6 +148,7 @@ impl Default for NetworkConfig {
             ipv4: default::HOST_IPV4,
             ipv6: None,
             port: default::PORT,
+            allowed_origin: None,
         }
     }
 }

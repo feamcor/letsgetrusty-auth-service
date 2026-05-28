@@ -28,8 +28,12 @@ impl Application {
     #[tracing::instrument(name = "ApplicationBuild", level = tracing::Level::TRACE, skip_all)]
     pub async fn build(state: AppState, address: SocketAddr) -> color_eyre::eyre::Result<Self> {
         let config = &state.config.inner();
-        // Allow the app service to call the auth service
-        let allowed_origins = [format!("http://{}:{}", address.ip(), config.network.app_service_port).parse()?];
+        // The CORS allow-origin must match the browser's Origin header (scheme + host + port of
+        // the app-service as seen by the user-agent), NOT auth-service's bind address — those
+        // diverge under 0.0.0.0 / Docker. Use the configured override, or `localhost:{app_port}`.
+        let allowed_origin = config.network.resolved_allowed_origin();
+        tracing::info!("CORS allow-origin: {}", allowed_origin);
+        let allowed_origins = [allowed_origin.as_str().trim_end_matches('/').parse()?];
         let cors = CorsLayer::new()
             .allow_methods([Method::GET, Method::POST])
             .allow_credentials(true)
