@@ -58,6 +58,11 @@ pub mod default {
     pub const USER: &str = "administrator";
 }
 
+/// Single source of truth for accepted db_pool_min / db_pool_max bounds. Cross-field invariant
+/// (POOL_MIN <= POOL_MAX) is enforced separately in load_mandatory_arguments. Typed as i64 for
+/// clap's RangeBounds<i64> contract; we cast on the env-fallback side.
+pub const DB_POOL_RANGE: std::ops::RangeInclusive<i64> = 1..=100;
+
 #[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
 #[value(rename_all = "kebab-case")]
 pub enum DatabaseEngine {
@@ -106,7 +111,7 @@ pub struct DatabaseConfig {
         env = var::POOL_MAX,
         default_value_t = default::POOL_MAX,
         help = "Maximum number of connections to the database.",
-        value_parser = clap::value_parser!(u32).range(1..=100),
+        value_parser = clap::value_parser!(u32).range(DB_POOL_RANGE),
     )]
     pub db_pool_max: u32,
 
@@ -115,7 +120,7 @@ pub struct DatabaseConfig {
         env = var::POOL_MIN,
         default_value_t = default::POOL_MIN,
         help = "Minimum number of connections to the database.",
-        value_parser = clap::value_parser!(u32).range(1..=100),
+        value_parser = clap::value_parser!(u32).range(DB_POOL_RANGE),
     )]
     pub db_pool_min: u32,
 
@@ -161,7 +166,7 @@ impl DatabaseConfig {
         let db_pool_max = std::env::var(var::POOL_MAX)
             .ok()
             .and_then(|s| s.parse::<u32>().ok())
-            .filter(|&size| (1..=100).contains(&size))
+            .filter(|&size| DB_POOL_RANGE.contains(&i64::from(size)))
             .unwrap_or_else(|| {
                 tracing::warn!("using default value: {}={}", var::POOL_MAX, default::POOL_MAX,);
                 default::POOL_MAX
@@ -170,7 +175,7 @@ impl DatabaseConfig {
         let db_pool_min = std::env::var(var::POOL_MIN)
             .ok()
             .and_then(|s| s.parse::<u32>().ok())
-            .filter(|&size| (1..=100).contains(&size))
+            .filter(|&size| DB_POOL_RANGE.contains(&i64::from(size)))
             .unwrap_or_else(|| {
                 tracing::warn!("using default value: {}={}", var::POOL_MIN, default::POOL_MIN,);
                 default::POOL_MIN

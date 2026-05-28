@@ -14,6 +14,10 @@ pub mod default {
 /// least 32 bytes (256 bits); shorter keys are trivially brute-forceable for HMAC signatures.
 pub const MIN_JWT_SECRET_BYTES: usize = 32;
 
+/// Single source of truth for the accepted jwt_ttl range. Typed as i64 so clap's value_parser
+/// (which constrains via RangeBounds<i64>) and the env-var fallback can share the same literal.
+pub const JWT_TTL_RANGE: std::ops::RangeInclusive<i64> = 300..=3600;
+
 #[derive(clap::Args, Debug)]
 pub struct JwtConfig {
     #[arg(skip)]
@@ -24,7 +28,7 @@ pub struct JwtConfig {
         env = var::TTL,
         default_value_t = default::TTL,
         help = "TTL for JWTs in seconds.",
-        value_parser = clap::value_parser!(u32).range(300..=3600),
+        value_parser = clap::value_parser!(u32).range(JWT_TTL_RANGE),
     )]
     pub jwt_ttl: u32,
 }
@@ -35,7 +39,7 @@ impl JwtConfig {
         let jwt_ttl = std::env::var(var::TTL)
             .ok()
             .and_then(|s| s.parse::<u32>().ok())
-            .filter(|&ttl| (300..=3600).contains(&ttl))
+            .filter(|&ttl| JWT_TTL_RANGE.contains(&i64::from(ttl)))
             .unwrap_or_else(|| {
                 tracing::warn!("using default value: {}={}", var::TTL, default::TTL,);
                 default::TTL

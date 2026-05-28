@@ -21,6 +21,15 @@ pub mod routes;
 pub mod services;
 pub mod utils;
 
+/// Static security headers set on every response. Defense-in-depth — none guard against logic
+/// bugs in this service, but they neutralize common browser-side footguns. Keep this list as
+/// the single source of truth so tests can iterate it and future additions are one row each.
+pub const SECURITY_HEADERS: &[(&str, &str)] = &[
+    ("x-content-type-options", "nosniff"),
+    ("x-frame-options", "DENY"),
+    ("referrer-policy", "strict-origin-when-cross-origin"),
+];
+
 #[derive(Debug)]
 pub struct Application {
     server: Serve<tokio::net::TcpListener, axum::Router, axum::Router>,
@@ -54,34 +63,23 @@ impl Application {
             .route("/verify-2fa", post(routes::verify_2fa))
             .route("/verify-token", post(routes::verify_token));
         tracing::info!("Initialized: API routes");
-        // Conservative defense-in-depth security headers. None of these protect against
-        // logic bugs in this service, but they neutralize common browser-side footguns:
-        // - X-Content-Type-Options: stop MIME sniffing of static assets we serve.
-        // - X-Frame-Options: refuse to be framed (clickjacking).
-        // - Referrer-Policy: don't leak the auth-service URL on outbound navigation.
-        let router = axum::Router::new()
+        let mut router = axum::Router::new()
             .fallback_service(assets_dir)
             .nest("/api", apis)
             .with_state(state)
-            .layer(cors)
-            .layer(SetResponseHeaderLayer::overriding(
-                HeaderName::from_static("x-content-type-options"),
-                HeaderValue::from_static("nosniff"),
-            ))
-            .layer(SetResponseHeaderLayer::overriding(
-                HeaderName::from_static("x-frame-options"),
-                HeaderValue::from_static("DENY"),
-            ))
-            .layer(SetResponseHeaderLayer::overriding(
-                HeaderName::from_static("referrer-policy"),
-                HeaderValue::from_static("strict-origin-when-cross-origin"),
-            ))
-            .layer(
-                TraceLayer::new_for_http()
-                    .make_span_with(utils::tracing::make_span_with_request_id)
-                    .on_request(utils::tracing::on_request)
-                    .on_response(utils::tracing::on_response),
-            );
+            .layer(cors);
+        for (name, value) in SECURITY_HEADERS {
+            router = router.layer(SetResponseHeaderLayer::overriding(
+                HeaderName::from_static(name),
+                HeaderValue::from_static(value),
+            ));
+        }
+        let router = router.layer(
+            TraceLayer::new_for_http()
+                .make_span_with(utils::tracing::make_span_with_request_id)
+                .on_request(utils::tracing::on_request)
+                .on_response(utils::tracing::on_response),
+        );
         tracing::info!("Initialized: Router");
         let listener = tokio::net::TcpListener::bind(address).await?;
         let address = listener.local_addr()?;

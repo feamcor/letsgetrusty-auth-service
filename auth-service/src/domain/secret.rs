@@ -24,9 +24,16 @@ impl std::fmt::Display for Secret {
 }
 
 impl PartialEq for Secret {
+    /// Constant-time content comparison so callers (Token, TwoFactorAuthCode, LoginAttemptId,
+    /// HashedPassword) can't leak the secret one byte at a time through response timing.
+    ///
+    /// SAFETY NOTE on length: `subtle::ConstantTimeEq` for byte slices fast-returns on length
+    /// mismatch — it is constant-time ONLY within a fixed-length bucket. Every current caller
+    /// wraps a value of effectively-fixed length (Argon2 PHC strings, 36-char UUID strings,
+    /// 6-digit codes, JWTs sharing a header+payload format), so the length-based fast path is
+    /// not exploitable. If a future contributor wraps a Secret around variable-length attacker-
+    /// controlled bytes and compares them via `==`, the length will leak in O(1).
     fn eq(&self, other: &Self) -> bool {
-        // Use constant-time comparison so callers (Token, TwoFactorAuthCode, LoginAttemptId,
-        // HashedPassword) can't leak the secret one byte at a time through response timing.
         self.expose().as_bytes().ct_eq(other.expose().as_bytes()).into()
     }
 }

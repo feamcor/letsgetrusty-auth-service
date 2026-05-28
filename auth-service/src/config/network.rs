@@ -46,9 +46,13 @@ pub struct NetworkConfig {
     )]
     pub app_service_port: u16,
 
-    /// Browser-visible Origin allowed by CORS. Must match the scheme/host/port the user-agent
-    /// sends in its `Origin` header (i.e. how the app-service is reached, not where auth-service
-    /// is bound). When unset, defaults to `http://localhost:{app_service_port}`.
+    /// Browser-visible Origin allowed by CORS, as configured by the operator. Must match the
+    /// scheme/host/port the user-agent sends in its `Origin` header (i.e. how the app-service
+    /// is reached, not where auth-service is bound). When unset, defaults to
+    /// `http://localhost:{app_service_port}`.
+    ///
+    /// IMPORTANT: callers must use `resolved_allowed_origin()` rather than reading this field
+    /// directly — the field holds the raw override; the helper applies the default fallback.
     #[arg(
         long,
         env = var::ALLOWED_ORIGIN,
