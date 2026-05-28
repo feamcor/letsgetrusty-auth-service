@@ -13,12 +13,14 @@ pub struct HashsetBannedTokenStore {
 #[async_trait::async_trait]
 impl BannedTokenStore for HashsetBannedTokenStore {
     async fn add_token(&self, token: &Token) -> BannedTokenStoreResult<()> {
-        let token = token.as_secret().expose();
-        if self.tokens.read().await.contains(token) {
-            Err(BannedTokenStoreError::TokenAlreadyExists)
-        } else {
-            self.tokens.write().await.insert(token.to_owned());
+        // Hold the write lock for the whole check-and-insert so concurrent add_token calls can't
+        // both observe "absent" and race to insert (matches the Redis variant's NX semantics).
+        let token = token.as_secret().expose().to_owned();
+        let mut tokens = self.tokens.write().await;
+        if tokens.insert(token) {
             Ok(())
+        } else {
+            Err(BannedTokenStoreError::TokenAlreadyExists)
         }
     }
 

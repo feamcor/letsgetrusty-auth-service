@@ -1,9 +1,9 @@
 use crate::app_state::AppState;
 use crate::domain::Email;
-use crate::domain::HashedPassword;
 use crate::domain::LoginAttemptId;
 use crate::domain::Secret;
 use crate::domain::TwoFactorAuthCode;
+use crate::domain::validate_password_strength;
 use crate::utils::api_error::ApiError;
 use crate::utils::api_error::ApiResult;
 use crate::utils::auth::generate_auth_cookie;
@@ -45,7 +45,9 @@ pub async fn login(
     Json(request): Json<LoginRequest>,
 ) -> ApiResult<(CookieJar, impl IntoResponse)> {
     let email = Email::parse(&request.email)?;
-    let _ = HashedPassword::parse(&request.password, &email).await?;
+    // Reject obviously bogus passwords (length / entropy) without paying the Argon2 cost twice;
+    // the real verify happens inside validate_user below.
+    validate_password_strength(&request.password, &email)?;
     let user_store = state.user_store.inner();
     user_store.validate_user(&email, &request.password).await?;
     let user = user_store.get_user(&email).await?;

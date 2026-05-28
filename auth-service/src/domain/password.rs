@@ -54,18 +54,7 @@ impl HashedPassword {
     #[tracing::instrument(name = "HashedPasswordParsing", level = tracing::Level::TRACE, skip_all
     )]
     pub async fn parse(password: &Secret, user: &Email) -> PasswordResult<Self> {
-        let raw_password = password.expose();
-        if raw_password.len() < MIN_PASSWORD_LENGTH {
-            return Err(PasswordError::TooShort);
-        }
-        if raw_password.len() > MAX_PASSWORD_LENGTH {
-            return Err(PasswordError::TooLong);
-        }
-        let entropy = zxcvbn(raw_password, &[user.as_secret().expose()]);
-        // Score 3 mean that the password can be cracked with 10^10 guesses or fewer.
-        if entropy.score() < MIN_PASSWORD_ENTROPY {
-            return Err(PasswordError::Weak);
-        }
+        validate_password_strength(password, user)?;
         let password_hash = compute_password_hash(password).await?;
         Ok(Self(password_hash))
     }
@@ -120,6 +109,24 @@ impl std::hash::Hash for HashedPassword {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.as_secret().hash(state);
     }
+}
+
+/// Cheap structural validation: length bounds + zxcvbn entropy. Used by both signup (before the
+/// expensive hash) and login (to reject obviously bogus input without doing any Argon2 work).
+pub fn validate_password_strength(password: &Secret, user: &Email) -> PasswordResult<()> {
+    let raw_password = password.expose();
+    if raw_password.len() < MIN_PASSWORD_LENGTH {
+        return Err(PasswordError::TooShort);
+    }
+    if raw_password.len() > MAX_PASSWORD_LENGTH {
+        return Err(PasswordError::TooLong);
+    }
+    let entropy = zxcvbn(raw_password, &[user.as_secret().expose()]);
+    // Score 3 means the password can be cracked with 10^10 guesses or fewer.
+    if entropy.score() < MIN_PASSWORD_ENTROPY {
+        return Err(PasswordError::Weak);
+    }
+    Ok(())
 }
 
 #[tracing::instrument(name = "PasswordHashComputation", level = tracing::Level::TRACE, skip_all
