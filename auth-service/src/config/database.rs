@@ -248,3 +248,57 @@ impl Default for DatabaseConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config_with(user: &str, password: &str) -> DatabaseConfig {
+        DatabaseConfig {
+            db_engine: DatabaseEngine::Postgres,
+            db_host: "127.0.0.1".to_owned(),
+            db_name: "letsgetrusty".to_owned(),
+            db_password: Some(password.into()),
+            db_pool_max: 10,
+            db_pool_min: 1,
+            db_port: 5432,
+            db_user: user.to_owned(),
+        }
+    }
+
+    #[test]
+    fn plain_password_is_passed_through() {
+        let url = config_with("alice", "simplepass").db_url(None);
+        assert!(
+            url.expose().contains("alice:simplepass@127.0.0.1:5432"),
+            "got: {}",
+            url.expose()
+        );
+    }
+
+    #[test]
+    fn password_with_at_sign_is_encoded() {
+        let url = config_with("alice", "p@ss/word").db_url(None);
+        // '@', '/', '?', etc. must be percent-encoded so the URL parser doesn't split on them.
+        assert!(!url.expose().contains("p@ss/word"), "raw '@' leaked: {}", url.expose());
+        assert!(url.expose().contains("p%40ss%2Fword"), "got: {}", url.expose());
+    }
+
+    #[test]
+    fn password_with_colon_and_question_mark_is_encoded() {
+        let url = config_with("alice", "a:b?c").db_url(None);
+        assert!(url.expose().contains("a%3Ab%3Fc"), "got: {}", url.expose());
+    }
+
+    #[test]
+    fn user_special_characters_are_encoded() {
+        let url = config_with("user@host", "pwd").db_url(None);
+        assert!(url.expose().contains("user%40host:pwd"), "got: {}", url.expose());
+    }
+
+    #[test]
+    fn store_name_override_is_used_in_path() {
+        let url = config_with("alice", "pwd").db_url(Some("test_db"));
+        assert!(url.expose().contains("/test_db?"), "got: {}", url.expose());
+    }
+}

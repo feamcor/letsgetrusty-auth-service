@@ -182,4 +182,22 @@ mod tests {
         let response = email_client.send_email(&email(), &subject(), &content()).await;
         assert!(response.is_err());
     }
+
+    #[tokio::test]
+    async fn send_email_preserves_base_path_when_joining() {
+        // A real Postmark deployment may sit behind a path prefix (e.g. an API gateway). When the
+        // base URL has no trailing slash, naive `url.join("email")` drops the last segment.
+        // Verify the fix: the request hits `/v1/email`, not `/email`.
+        let mock_server = MockServer::start().await;
+        let base_with_prefix = format!("{}/v1", mock_server.uri());
+        let email_client = email_client(&base_with_prefix);
+        Mock::given(path("/v1/email"))
+            .and(method(reqwest::Method::POST))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+        let response = email_client.send_email(&email(), &subject(), &content()).await;
+        assert!(response.is_ok(), "request should hit /v1/email, got: {response:?}");
+    }
 }

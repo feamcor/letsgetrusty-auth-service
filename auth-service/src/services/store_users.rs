@@ -89,3 +89,68 @@ impl std::fmt::Debug for UserStoreType {
         f.debug_struct("UserStoreType").finish_non_exhaustive()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::services::HashmapUserStore;
+    use fake::Fake;
+    use fake::faker::internet::en::SafeEmail;
+    use std::time::Duration;
+    use std::time::Instant;
+
+    async fn elapsed_for<F, Fut>(op: F) -> Duration
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = ()>,
+    {
+        let started = Instant::now();
+        op().await;
+        started.elapsed()
+    }
+
+    #[tokio::test]
+    async fn validate_user_unknown_email_returns_incorrect_credentials() {
+        let store = HashmapUserStore::default();
+        let email = Email::parse(&SafeEmail().fake::<String>().into()).unwrap();
+        let result = store.validate_user(&email, &"AnyPassword123!".into()).await;
+        assert!(matches!(result, Err(UserStoreError::IncorrectCredentials)));
+    }
+
+    /// Timing-oracle defense: the unknown-email branch must take roughly as long as the
+    /// known-email-wrong-password branch. With Argon2id m=19456, both branches spend tens of
+    /// milliseconds in the hash; an undefended branch would return in microseconds.
+    #[tokio::test]
+    async fn validate_user_unknown_branch_is_not_dramatically_faster() {
+        let store = HashmapUserStore::default();
+        let known_email = Email::parse(&SafeEmail().fake::<String>().into()).unwrap();
+        let password: Secret = "CorrectHorseBatteryStaple123!".into();
+        let user = User::new(
+            &known_email,
+            &HashedPassword::parse(&password, &known_email).await.unwrap(),
+            false,
+        );
+        store.add_user(user).await.unwrap();
+
+        // Warm up — Argon2 setup + LazyLock init shouldn't skew the first measurement.
+        let _ = store.validate_user(&known_email, &"wrong-Wrong-PASSWORD-111!".into()).await;
+
+        let wrong_password_time = elapsed_for(|| async {
+            let _ = store.validate_user(&known_email, &"wrong-Wrong-PASSWORD-111!".into()).await;
+        })
+        .await;
+        let unknown_email = Email::parse(&SafeEmail().fake::<String>().into()).unwrap();
+        let unknown_email_time = elapsed_for(|| async {
+            let _ = store.validate_user(&unknown_email, &"wrong-Wrong-PASSWORD-111!".into()).await;
+        })
+        .await;
+
+        // The unknown-email branch must be at least 25% of the wrong-password branch — the
+        // pre-fix value was effectively 0%. We don't enforce equality because Argon2 timings
+        // vary across runs and CI hardware.
+        assert!(
+            unknown_email_time * 4 >= wrong_password_time,
+            "decoy too cheap: unknown={unknown_email_time:?} wrong={wrong_password_time:?}",
+        );
+    }
+}

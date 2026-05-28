@@ -74,4 +74,23 @@ mod tests {
         let email = "invalid-email".into();
         assert!(Email::parse(&email).is_err());
     }
+
+    #[test]
+    fn parse_lowercases_input() {
+        let parsed = Email::parse(&"Alice@Example.com".into()).unwrap();
+        assert_eq!(parsed.as_secret().expose(), "alice@example.com");
+    }
+
+    #[test]
+    fn parse_trims_surrounding_whitespace() {
+        let parsed = Email::parse(&"  alice@example.com  ".into()).unwrap();
+        assert_eq!(parsed.as_secret().expose(), "alice@example.com");
+    }
+
+    #[test]
+    fn case_variant_emails_are_equal_after_parse() {
+        let a = Email::parse(&"Alice@Example.com".into()).unwrap();
+        let b = Email::parse(&"ALICE@example.COM".into()).unwrap();
+        assert_eq!(a, b);
+    }
 }

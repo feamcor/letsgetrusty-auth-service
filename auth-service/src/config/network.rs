@@ -152,3 +152,24 @@ impl Default for NetworkConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolved_allowed_origin_defaults_to_localhost_with_app_port() {
+        let mut config = NetworkConfig::default();
+        config.app_service_port = 9000;
+        let resolved = config.resolved_allowed_origin();
+        assert_eq!(resolved.as_str(), "http://localhost:9000/");
+    }
+
+    #[test]
+    fn resolved_allowed_origin_uses_explicit_override() {
+        let mut config = NetworkConfig::default();
+        config.allowed_origin = Some(url::Url::parse("https://app.example.com").unwrap());
+        let resolved = config.resolved_allowed_origin();
+        assert_eq!(resolved.as_str(), "https://app.example.com/");
+    }
+}

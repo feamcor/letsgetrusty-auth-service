@@ -63,6 +63,59 @@ impl serde::Serialize for Secret {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn equal_secrets_compare_equal() {
+        let a: Secret = "hello".into();
+        let b: Secret = "hello".into();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn different_secrets_compare_unequal() {
+        let a: Secret = "hello".into();
+        let b: Secret = "world".into();
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn different_length_secrets_compare_unequal() {
+        // Constant-time comparison should still return false for inputs of different length.
+        let a: Secret = "hello".into();
+        let b: Secret = "helloworld".into();
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn default_serialize_is_redacted() {
+        let secret: Secret = "very-secret-value".into();
+        let json = serde_json::to_string(&secret).unwrap();
+        assert_eq!(json, r#""[REDACTED]""#);
+        assert!(!json.contains("very-secret-value"));
+    }
+
+    #[test]
+    fn expose_serializer_emits_cleartext() {
+        #[derive(serde::Serialize)]
+        struct Wrapper(#[serde(serialize_with = "Secret::expose_serializer")] Secret);
+        let secret: Secret = "very-secret-value".into();
+        let wrapper = Wrapper(secret);
+        let json = serde_json::to_string(&wrapper).unwrap();
+        assert_eq!(json, r#""very-secret-value""#);
+    }
+
+    #[test]
+    fn debug_format_is_redacted() {
+        // secrecy::SecretString's Debug already redacts; verify we haven't accidentally bypassed.
+        let secret: Secret = "very-secret-value".into();
+        let debug = format!("{secret:?}");
+        assert!(!debug.contains("very-secret-value"), "Debug must not contain cleartext: {debug}");
+    }
+}
+
 impl Secret {
     /// Opt-in serializer that emits the cleartext. Intended for `#[serde(serialize_with = ...)]`
     /// on individual fields whose plaintext must reach the wire.
