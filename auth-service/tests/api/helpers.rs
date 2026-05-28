@@ -35,7 +35,6 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use test_context::AsyncTestContext;
-use tokio::sync::RwLock;
 use uuid::Uuid;
 
 pub struct TestApp {
@@ -68,11 +67,18 @@ impl TestApp {
                 UserStoreType::new(PostgresUserStore::new(test_db_pool))
             }
         };
+        let cache_connection = match config.cache.cache_engine {
+            CacheEngine::Memory => None,
+            CacheEngine::Redis => Some(
+                configure_cache(&config.cache.cache_url())
+                    .await
+                    .expect("Failed to configure cache"),
+            ),
+        };
         let banned_token_store_type = match config.cache.cache_engine {
             CacheEngine::Memory => BannedTokenStoreType::new(HashsetBannedTokenStore::default()),
             CacheEngine::Redis => {
-                let connection = configure_cache(&config.cache.cache_url()).expect("Failed to configure cache");
-                let connection = RwLock::new(connection);
+                let connection = cache_connection.clone().expect("cache connection initialised above");
                 BannedTokenStoreType::new(RedisBannedTokenStore::new(connection, u64::from(config.jwt.jwt_ttl)))
             }
         };
@@ -81,8 +87,7 @@ impl TestApp {
                 TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::new(u64::from(config.tfa.tfa_ttl)))
             }
             CacheEngine::Redis => {
-                let connection = configure_cache(&config.cache.cache_url()).expect("Failed to configure cache");
-                let connection = RwLock::new(connection);
+                let connection = cache_connection.clone().expect("cache connection initialised above");
                 TwoFactorAuthCodeStoreType::new(RedisTwoFactorAuthCodeStore::new(
                     connection,
                     u64::from(config.tfa.tfa_ttl),

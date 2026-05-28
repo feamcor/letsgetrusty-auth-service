@@ -128,7 +128,9 @@ pub fn get_cache_client(url: &Secret) -> redis::RedisResult<redis::Client> {
 }
 
 #[tracing::instrument(name = "ConfigureCache", level = tracing::Level::TRACE, skip_all)]
-pub fn configure_cache(url: &Secret) -> redis::RedisResult<redis::Connection> {
+pub async fn configure_cache(url: &Secret) -> redis::RedisResult<redis::aio::MultiplexedConnection> {
     let client = get_cache_client(url)?;
-    client.get_connection()
+    // MultiplexedConnection is Clone and internally synchronizes concurrent commands, so the same
+    // handle can be shared across stores without an outer RwLock.
+    client.get_multiplexed_async_connection().await
 }
