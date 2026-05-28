@@ -23,6 +23,12 @@ pub const PASSWORD_LENGTH_RANGE: std::ops::Range<usize> = MIN_PASSWORD_LENGTH..M
 pub const SAFE_PASSWORD_LENGTH_RANGE: std::ops::Range<usize> = MIN_PASSWORD_LENGTH * 2..MAX_PASSWORD_LENGTH + 1;
 const MIN_PASSWORD_ENTROPY: Score = Score::Three;
 
+// OWASP Password Storage Cheat Sheet (Argon2id, t=2, p=1): m >= 19 MiB.
+// https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
+pub const ARGON2_MEMORY_KIB: u32 = 19456;
+pub const ARGON2_ITERATIONS: u32 = 2;
+pub const ARGON2_PARALLELISM: u32 = 1;
+
 #[derive(thiserror::Error, Debug)]
 pub enum PasswordError {
     #[error("Password is too short (min length is {MIN_PASSWORD_LENGTH})")]
@@ -41,25 +47,14 @@ pub enum PasswordError {
 
 pub type PasswordResult<T> = Result<T, PasswordError>;
 
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct HashedPassword(Secret);
 
 impl HashedPassword {
     #[tracing::instrument(name = "HashedPasswordParsing", level = tracing::Level::TRACE, skip_all
     )]
     pub async fn parse(password: &Secret, user: &Email) -> PasswordResult<Self> {
-        let raw_password = password.expose();
-        if raw_password.len() < MIN_PASSWORD_LENGTH {
-            return Err(PasswordError::TooShort);
-        }
-        if raw_password.len() > MAX_PASSWORD_LENGTH {
-            return Err(PasswordError::TooLong);
-        }
-        let entropy = zxcvbn(raw_password, &[user.as_secret().expose()]);
-        // Score 3 mean that the password can be cracked with 10^10 guesses or fewer.
-        if entropy.score() < MIN_PASSWORD_ENTROPY {
-            return Err(PasswordError::Weak);
-        }
+        validate_password_strength(password, user)?;
         let password_hash = compute_password_hash(password).await?;
         Ok(Self(password_hash))
     }
@@ -116,19 +111,42 @@ impl std::hash::Hash for HashedPassword {
     }
 }
 
+/// Cheap structural validation: length bounds + zxcvbn entropy. Used by both signup (before the
+/// expensive hash) and login (to reject obviously bogus input without doing any Argon2 work).
+pub fn validate_password_strength(password: &Secret, user: &Email) -> PasswordResult<()> {
+    let raw_password = password.expose();
+    if raw_password.len() < MIN_PASSWORD_LENGTH {
+        return Err(PasswordError::TooShort);
+    }
+    if raw_password.len() > MAX_PASSWORD_LENGTH {
+        return Err(PasswordError::TooLong);
+    }
+    let entropy = zxcvbn(raw_password, &[user.as_secret().expose()]);
+    // Score 3 means the password can be cracked with 10^10 guesses or fewer.
+    if entropy.score() < MIN_PASSWORD_ENTROPY {
+        return Err(PasswordError::Weak);
+    }
+    Ok(())
+}
+
+/// Synchronous, blocking Argon2id hash. Suitable for `spawn_blocking` or one-shot startup work.
+/// Centralized so any change to algorithm/version/params applies everywhere a hash is produced
+/// (the decoy in `store_users.rs` shares this).
+pub fn compute_password_hash_sync(password: &[u8]) -> color_eyre::eyre::Result<String> {
+    let salt: SaltString = SaltString::generate(&mut OsRng);
+    let params = Params::new(ARGON2_MEMORY_KIB, ARGON2_ITERATIONS, ARGON2_PARALLELISM, None)?;
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+    let hash = argon2.hash_password(password, &salt)?;
+    Ok(hash.to_string())
+}
+
 #[tracing::instrument(name = "PasswordHashComputation", level = tracing::Level::TRACE, skip_all
 )]
 async fn compute_password_hash(password: &Secret) -> color_eyre::eyre::Result<Secret> {
     let current_span = tracing::Span::current();
     let password = password.expose().to_owned();
     spawn_blocking(move || -> color_eyre::eyre::Result<String> {
-        current_span.in_scope(|| {
-            let salt: SaltString = SaltString::generate(&mut OsRng);
-            let params = Params::new(15000, 2, 1, None)?;
-            let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-            let hash = argon2.hash_password(password.as_bytes(), &salt)?;
-            Ok(hash.to_string())
-        })
+        current_span.in_scope(|| compute_password_hash_sync(password.as_bytes()))
     })
     .await?
     .map(Secret::from)
@@ -209,7 +227,7 @@ mod tests {
         let argon2 = Argon2::new(
             Algorithm::Argon2id,
             Version::V0x13,
-            Params::new(15000, 2, 1, None).unwrap(),
+            Params::new(ARGON2_MEMORY_KIB, ARGON2_ITERATIONS, ARGON2_PARALLELISM, None).unwrap(),
         );
         let hash = argon2
             .hash_password(raw_password.as_bytes(), &salt)
@@ -228,7 +246,7 @@ mod tests {
         let argon2 = Argon2::new(
             Algorithm::Argon2id,
             Version::V0x13,
-            Params::new(15000, 2, 1, None).unwrap(),
+            Params::new(ARGON2_MEMORY_KIB, ARGON2_ITERATIONS, ARGON2_PARALLELISM, None).unwrap(),
         );
         let hash = argon2
             .hash_password(raw_password.as_bytes(), &salt)

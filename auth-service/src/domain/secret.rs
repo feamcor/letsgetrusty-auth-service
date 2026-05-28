@@ -1,5 +1,6 @@
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
+use subtle::ConstantTimeEq;
 
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct Secret(SecretString);
@@ -23,8 +24,17 @@ impl std::fmt::Display for Secret {
 }
 
 impl PartialEq for Secret {
+    /// Constant-time content comparison so callers (Token, TwoFactorAuthCode, LoginAttemptId,
+    /// HashedPassword) can't leak the secret one byte at a time through response timing.
+    ///
+    /// SAFETY NOTE on length: `subtle::ConstantTimeEq` for byte slices fast-returns on length
+    /// mismatch — it is constant-time ONLY within a fixed-length bucket. Every current caller
+    /// wraps a value of effectively-fixed length (Argon2 PHC strings, 36-char UUID strings,
+    /// 6-digit codes, JWTs sharing a header+payload format), so the length-based fast path is
+    /// not exploitable. If a future contributor wraps a Secret around variable-length attacker-
+    /// controlled bytes and compares them via `==`, the length will leak in O(1).
     fn eq(&self, other: &Self) -> bool {
-        self.expose() == other.expose()
+        self.expose().as_bytes().ct_eq(other.expose().as_bytes()).into()
     }
 }
 
@@ -48,11 +58,78 @@ impl std::hash::Hash for Secret {
     }
 }
 
+/// Default `Serialize` deliberately redacts the inner value. Types that legitimately need to
+/// emit the cleartext (e.g. `LoginAttemptId` in a JSON response body) must implement `Serialize`
+/// themselves, or annotate the field with `#[serde(serialize_with = "Secret::expose_serializer")]`.
 impl serde::Serialize for Secret {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&self.expose())
+        serializer.serialize_str("[REDACTED]")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn equal_secrets_compare_equal() {
+        let a: Secret = "hello".into();
+        let b: Secret = "hello".into();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn different_secrets_compare_unequal() {
+        let a: Secret = "hello".into();
+        let b: Secret = "world".into();
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn different_length_secrets_compare_unequal() {
+        // Constant-time comparison should still return false for inputs of different length.
+        let a: Secret = "hello".into();
+        let b: Secret = "helloworld".into();
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn default_serialize_is_redacted() {
+        let secret: Secret = "very-secret-value".into();
+        let json = serde_json::to_string(&secret).unwrap();
+        assert_eq!(json, r#""[REDACTED]""#);
+        assert!(!json.contains("very-secret-value"));
+    }
+
+    #[test]
+    fn expose_serializer_emits_cleartext() {
+        #[derive(serde::Serialize)]
+        struct Wrapper(#[serde(serialize_with = "Secret::expose_serializer")] Secret);
+        let secret: Secret = "very-secret-value".into();
+        let wrapper = Wrapper(secret);
+        let json = serde_json::to_string(&wrapper).unwrap();
+        assert_eq!(json, r#""very-secret-value""#);
+    }
+
+    #[test]
+    fn debug_format_is_redacted() {
+        // secrecy::SecretString's Debug already redacts; verify we haven't accidentally bypassed.
+        let secret: Secret = "very-secret-value".into();
+        let debug = format!("{secret:?}");
+        assert!(!debug.contains("very-secret-value"), "Debug must not contain cleartext: {debug}");
+    }
+}
+
+impl Secret {
+    /// Opt-in serializer that emits the cleartext. Intended for `#[serde(serialize_with = ...)]`
+    /// on individual fields whose plaintext must reach the wire.
+    pub fn expose_serializer<S>(secret: &Secret, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(secret.expose())
     }
 }

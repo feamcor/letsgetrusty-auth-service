@@ -1,5 +1,7 @@
 use crate::app_state::AppState;
 use crate::domain::Secret;
+use axum::http::HeaderName;
+use axum::http::HeaderValue;
 use axum::http::Method;
 use axum::routing::get;
 use axum::routing::post;
@@ -9,6 +11,7 @@ use tokio_util::sync::CancellationToken;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 use tower_http::services::ServeFile;
+use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 
 pub mod app_state;
@@ -17,6 +20,15 @@ pub mod domain;
 pub mod routes;
 pub mod services;
 pub mod utils;
+
+/// Static security headers set on every response. Defense-in-depth — none guard against logic
+/// bugs in this service, but they neutralize common browser-side footguns. Keep this list as
+/// the single source of truth so tests can iterate it and future additions are one row each.
+pub const SECURITY_HEADERS: &[(&str, &str)] = &[
+    ("x-content-type-options", "nosniff"),
+    ("x-frame-options", "DENY"),
+    ("referrer-policy", "strict-origin-when-cross-origin"),
+];
 
 #[derive(Debug)]
 pub struct Application {
@@ -28,8 +40,15 @@ impl Application {
     #[tracing::instrument(name = "ApplicationBuild", level = tracing::Level::TRACE, skip_all)]
     pub async fn build(state: AppState, address: SocketAddr) -> color_eyre::eyre::Result<Self> {
         let config = &state.config.inner();
-        // Allow the app service to call the auth service
-        let allowed_origins = [format!("http://{}:{}", address.ip(), config.network.app_service_port).parse()?];
+        // The CORS allow-origin must match the browser's Origin header (scheme + host + port of
+        // the app-service as seen by the user-agent), NOT auth-service's bind address — those
+        // diverge under 0.0.0.0 / Docker. Use the configured override, or `localhost:{app_port}`.
+        // Use `.origin().ascii_serialization()` so we strip any accidental path/query/fragment
+        // from the configured URL (browsers only send scheme://host[:port] as Origin).
+        let allowed_origin = config.network.resolved_allowed_origin();
+        let allowed_origin_value = allowed_origin.origin().ascii_serialization();
+        tracing::info!("CORS allow-origin: {}", allowed_origin_value);
+        let allowed_origins = [allowed_origin_value.parse()?];
         let cors = CorsLayer::new()
             .allow_methods([Method::GET, Method::POST])
             .allow_credentials(true)
@@ -44,17 +63,23 @@ impl Application {
             .route("/verify-2fa", post(routes::verify_2fa))
             .route("/verify-token", post(routes::verify_token));
         tracing::info!("Initialized: API routes");
-        let router = axum::Router::new()
+        let mut router = axum::Router::new()
             .fallback_service(assets_dir)
             .nest("/api", apis)
             .with_state(state)
-            .layer(cors)
-            .layer(
-                TraceLayer::new_for_http()
-                    .make_span_with(utils::tracing::make_span_with_request_id)
-                    .on_request(utils::tracing::on_request)
-                    .on_response(utils::tracing::on_response),
-            );
+            .layer(cors);
+        for (name, value) in SECURITY_HEADERS {
+            router = router.layer(SetResponseHeaderLayer::overriding(
+                HeaderName::from_static(name),
+                HeaderValue::from_static(value),
+            ));
+        }
+        let router = router.layer(
+            TraceLayer::new_for_http()
+                .make_span_with(utils::tracing::make_span_with_request_id)
+                .on_request(utils::tracing::on_request)
+                .on_response(utils::tracing::on_response),
+        );
         tracing::info!("Initialized: Router");
         let listener = tokio::net::TcpListener::bind(address).await?;
         let address = listener.local_addr()?;
@@ -124,7 +149,9 @@ pub fn get_cache_client(url: &Secret) -> redis::RedisResult<redis::Client> {
 }
 
 #[tracing::instrument(name = "ConfigureCache", level = tracing::Level::TRACE, skip_all)]
-pub fn configure_cache(url: &Secret) -> redis::RedisResult<redis::Connection> {
+pub async fn configure_cache(url: &Secret) -> redis::RedisResult<redis::aio::MultiplexedConnection> {
     let client = get_cache_client(url)?;
-    client.get_connection()
+    // MultiplexedConnection is Clone and internally synchronizes concurrent commands, so the same
+    // handle can be shared across stores without an outer RwLock.
+    client.get_multiplexed_async_connection().await
 }

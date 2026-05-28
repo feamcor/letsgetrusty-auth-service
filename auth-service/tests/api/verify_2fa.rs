@@ -5,10 +5,7 @@ use auth_service::domain::LoginAttemptId;
 use auth_service::domain::SAFE_PASSWORD_LENGTH_RANGE;
 use auth_service::domain::Secret;
 use auth_service::domain::TwoFactorAuthCode;
-use auth_service::routes::LoginRequest;
-use auth_service::routes::SignupRequest;
 use auth_service::routes::TwoFactorAuthResponse;
-use auth_service::routes::Verify2FARequest;
 use fake::Fake;
 use fake::faker::internet::en::DomainSuffix;
 use fake::faker::internet::en::SafeEmail;
@@ -25,11 +22,11 @@ async fn verify_2fa_successful(ctx: &mut TestAppAsyncContext) {
     ctx.db_url = app.db_url.clone();
     let email: Secret = SafeEmail().fake::<String>().into();
     let password: Secret = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().into();
-    let signup_request = SignupRequest {
-        email: email.clone(),
-        password: password.clone(),
-        requires_2fa: true,
-    };
+    let signup_request = json!({
+        "email": email.expose(),
+        "password": password.expose(),
+        "requires2FA": true,
+    });
     let signup_response = app.post_signup(&signup_request).await;
     assert_eq!(signup_response.status(), StatusCode::CREATED);
     wiremock::Mock::given(wiremock::matchers::path("/email"))
@@ -38,10 +35,10 @@ async fn verify_2fa_successful(ctx: &mut TestAppAsyncContext) {
         .expect(1)
         .mount(app.email_server.as_ref().unwrap())
         .await;
-    let login_request = LoginRequest {
-        email: email.clone(),
-        password: password.clone(),
-    };
+    let login_request = json!({
+        "email": email.expose(),
+        "password": password.expose(),
+    });
     let login_response = app.post_login(&login_request).await;
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
     let attempt_id = login_response
@@ -49,11 +46,11 @@ async fn verify_2fa_successful(ctx: &mut TestAppAsyncContext) {
         .await
         .unwrap()
         .login_attempt_id;
-    let request = Verify2FARequest {
-        email: email.clone(),
-        login_attempt_id: attempt_id.as_secret().to_owned(),
-        two_factor_auth_code: TwoFactorAuthCode::default().as_secret().to_owned(),
-    };
+    let request = json!({
+        "email": email.expose(),
+        "loginAttemptId": attempt_id,
+        "2FACode": TwoFactorAuthCode::default().as_secret().expose(),
+    });
     let response = app.post_verify_2fa(&request).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
@@ -65,21 +62,21 @@ async fn should_return_400_if_invalid_input(ctx: &mut TestAppAsyncContext) {
     let app = TestApp::new(ctx.db_name.as_str()).await;
     ctx.db_url = app.db_url.clone();
     let requests = [
-        Verify2FARequest {
-            email: DomainSuffix().fake::<String>().into(),
-            login_attempt_id: LoginAttemptId::default().as_secret().to_owned(),
-            two_factor_auth_code: TwoFactorAuthCode::default().as_secret().to_owned(),
-        },
-        Verify2FARequest {
-            email: SafeEmail().fake::<String>().into(),
-            login_attempt_id: "invalid".into(),
-            two_factor_auth_code: TwoFactorAuthCode::default().as_secret().to_owned(),
-        },
-        Verify2FARequest {
-            email: SafeEmail().fake::<String>().into(),
-            login_attempt_id: LoginAttemptId::default().as_secret().to_owned(),
-            two_factor_auth_code: "invalid".into(),
-        },
+        json!({
+            "email": DomainSuffix().fake::<String>(),
+            "loginAttemptId": LoginAttemptId::default().as_secret().expose(),
+            "2FACode": TwoFactorAuthCode::default().as_secret().expose(),
+        }),
+        json!({
+            "email": SafeEmail().fake::<String>(),
+            "loginAttemptId": "invalid",
+            "2FACode": TwoFactorAuthCode::default().as_secret().expose(),
+        }),
+        json!({
+            "email": SafeEmail().fake::<String>(),
+            "loginAttemptId": LoginAttemptId::default().as_secret().expose(),
+            "2FACode": "invalid",
+        }),
     ];
     for request in &requests {
         let response = app.post_verify_2fa(&request).await;
@@ -96,8 +93,8 @@ async fn should_return_401_if_incorrect_credentials(ctx: &mut TestAppAsyncContex
     let email: Secret = SafeEmail().fake::<String>().into();
     let password: Secret = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().into();
     let signup_request = json!({
-        "email": &email,
-        "password": &password,
+        "email": email.expose(),
+        "password": password.expose(),
         "requires2FA": true,
     });
     let signup_response = app.post_signup(&signup_request).await;
@@ -109,8 +106,8 @@ async fn should_return_401_if_incorrect_credentials(ctx: &mut TestAppAsyncContex
         .mount(app.email_server.as_ref().unwrap())
         .await;
     let login_request = json!({
-        "email": &email,
-        "password": &password,
+        "email": email.expose(),
+        "password": password.expose(),
     });
     let login_response = app.post_login(&login_request).await;
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
@@ -120,9 +117,9 @@ async fn should_return_401_if_incorrect_credentials(ctx: &mut TestAppAsyncContex
         .unwrap()
         .login_attempt_id;
     let request = json!({
-        "email": email,
+        "email": email.expose(),
         "loginAttemptId": attempt_id,
-        "2FACode": TwoFactorAuthCode::default(),
+        "2FACode": TwoFactorAuthCode::default().as_secret().expose(),
     });
     let response = app.post_verify_2fa(&request).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
@@ -137,8 +134,8 @@ async fn should_return_401_if_old_attempt_id(ctx: &mut TestAppAsyncContext) {
     let email: Secret = SafeEmail().fake::<String>().into();
     let password: Secret = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().into();
     let signup_request = json!({
-        "email": &email,
-        "password": &password,
+        "email": email.expose(),
+        "password": password.expose(),
         "requires2FA": true,
     });
     let signup_response = app.post_signup(&signup_request).await;
@@ -150,8 +147,8 @@ async fn should_return_401_if_old_attempt_id(ctx: &mut TestAppAsyncContext) {
         .mount(app.email_server.as_ref().unwrap())
         .await;
     let login_request = json!({
-        "email": &email,
-        "password": &password,
+        "email": email.expose(),
+        "password": password.expose(),
     });
     let login_response = app.post_login(&login_request).await;
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
@@ -165,9 +162,9 @@ async fn should_return_401_if_old_attempt_id(ctx: &mut TestAppAsyncContext) {
     let store = &app.two_factor_auth_code_store;
     let (_, auth_code) = store.inner().get_code(&Email::parse(&email).unwrap()).await.unwrap();
     let request = json!({
-        "email": email,
+        "email": email.expose(),
         "loginAttemptId": attempt_id, // this is the attempt id of the first login
-        "2FACode": auth_code, // this is the auth code of the second login
+        "2FACode": auth_code.as_secret().expose(), // this is the auth code of the second login
     });
     let response = app.post_verify_2fa(&request).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
@@ -182,8 +179,8 @@ async fn should_return_401_if_old_auth_code(ctx: &mut TestAppAsyncContext) {
     let email: Secret = SafeEmail().fake::<String>().into();
     let password: Secret = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().into();
     let signup_request = json!({
-        "email": &email,
-        "password": &password,
+        "email": email.expose(),
+        "password": password.expose(),
         "requires2FA": true,
     });
     let signup_response = app.post_signup(&signup_request).await;
@@ -195,8 +192,8 @@ async fn should_return_401_if_old_auth_code(ctx: &mut TestAppAsyncContext) {
         .mount(app.email_server.as_ref().unwrap())
         .await;
     let login_request = json!({
-        "email": &email,
-        "password": &password,
+        "email": email.expose(),
+        "password": password.expose(),
     });
     let login_response = app.post_login(&login_request).await;
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
@@ -210,9 +207,9 @@ async fn should_return_401_if_old_auth_code(ctx: &mut TestAppAsyncContext) {
         .unwrap()
         .login_attempt_id;
     let request = json!({
-        "email": email,
+        "email": email.expose(),
         "loginAttemptId": attempt_id, // this is the attempt id of the second login
-        "2FACode": auth_code, // this is the auth code of the first login
+        "2FACode": auth_code.as_secret().expose(), // this is the auth code of the first login
     });
     let response = app.post_verify_2fa(&request).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
@@ -227,8 +224,8 @@ async fn should_return_401_if_same_code_twice(ctx: &mut TestAppAsyncContext) {
     let email: Secret = SafeEmail().fake::<String>().into();
     let password: Secret = SAFE_PASSWORD_LENGTH_RANGE.fake::<String>().into();
     let signup_request = json!({
-        "email": &email,
-        "password": &password,
+        "email": email.expose(),
+        "password": password.expose(),
         "requires2FA": true,
     });
     let signup_response = app.post_signup(&signup_request).await;
@@ -240,17 +237,17 @@ async fn should_return_401_if_same_code_twice(ctx: &mut TestAppAsyncContext) {
         .mount(app.email_server.as_ref().unwrap())
         .await;
     let login_request = json!({
-        "email": &email,
-        "password": &password,
+        "email": email.expose(),
+        "password": password.expose(),
     });
     let login_response = app.post_login(&login_request).await;
     assert_eq!(login_response.status(), StatusCode::PARTIAL_CONTENT);
     let store = &app.two_factor_auth_code_store;
     let (attempt_id, auth_code) = store.inner().get_code(&Email::parse(&email).unwrap()).await.unwrap();
     let request = json!({
-        "email": email,
-        "loginAttemptId": attempt_id,
-        "2FACode": auth_code,
+        "email": email.expose(),
+        "loginAttemptId": attempt_id.as_secret().expose(),
+        "2FACode": auth_code.as_secret().expose(),
     });
     let response = app.post_verify_2fa(&request).await;
     assert_eq!(response.status(), StatusCode::OK);

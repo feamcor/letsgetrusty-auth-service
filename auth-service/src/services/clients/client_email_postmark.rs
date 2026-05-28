@@ -49,7 +49,16 @@ struct PostmarkSendEmailRequest<'a> {
 impl EmailClient for PostmarkEmailClient {
     #[tracing::instrument(name = "SendingEmail", skip_all)]
     async fn send_email(&self, recipient: &Email, subject: &str, content: &str) -> EmailClientResult<()> {
-        let url = self.api_url.clone().join("email").unwrap();
+        let mut url = self.api_url.clone();
+        // Ensure the configured base URL is treated as a directory so `join` appends rather than
+        // replacing the last path segment (e.g. "/v1" + "email" → "/v1/email", not "/email").
+        if !url.path().ends_with('/') {
+            let path = format!("{}/", url.path());
+            url.set_path(&path);
+        }
+        let url = url
+            .join("email")
+            .map_err(|error| EmailClientError::UnexpectedError(error.into()))?;
         let request_body = PostmarkSendEmailRequest {
             from: self.sender.as_secret().expose(),
             to: recipient.as_secret().expose(),
@@ -172,5 +181,23 @@ mod tests {
             .await;
         let response = email_client.send_email(&email(), &subject(), &content()).await;
         assert!(response.is_err());
+    }
+
+    #[tokio::test]
+    async fn send_email_preserves_base_path_when_joining() {
+        // A real Postmark deployment may sit behind a path prefix (e.g. an API gateway). When the
+        // base URL has no trailing slash, naive `url.join("email")` drops the last segment.
+        // Verify the fix: the request hits `/v1/email`, not `/email`.
+        let mock_server = MockServer::start().await;
+        let base_with_prefix = format!("{}/v1", mock_server.uri());
+        let email_client = email_client(&base_with_prefix);
+        Mock::given(path("/v1/email"))
+            .and(method(reqwest::Method::POST))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+        let response = email_client.send_email(&email(), &subject(), &content()).await;
+        assert!(response.is_ok(), "request should hit /v1/email, got: {response:?}");
     }
 }

@@ -1,0 +1,14 @@
+# cargo-audit configuration
+#
+# Advisories listed here are reviewed and intentionally ignored. Re-evaluate any time
+# `cargo update` is run or when sqlx/jsonwebtoken are upgraded.
+
+[advisories]
+ignore = [
+    # rsa 0.9.10 is pulled in via sqlx-mysql as a transitive optional dep, but auth-service
+    # only enables sqlx's "postgres" feature — sqlx-mysql is NOT compiled into the binary.
+    # Verified with `cargo tree --invert --package sqlx-mysql` returning empty and
+    # `cargo tree -e features | grep mysql` returning no matches. Revisit if/when a fixed
+    # version of rsa ships, or if sqlx drops mysql from its base manifest.
+    "RUSTSEC-2023-0071",
+]

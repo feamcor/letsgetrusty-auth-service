@@ -35,7 +35,6 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use test_context::AsyncTestContext;
-use tokio::sync::RwLock;
 use uuid::Uuid;
 
 pub struct TestApp {
@@ -68,23 +67,21 @@ impl TestApp {
                 UserStoreType::new(PostgresUserStore::new(test_db_pool))
             }
         };
-        let banned_token_store_type = match config.cache.cache_engine {
-            CacheEngine::Memory => BannedTokenStoreType::new(HashsetBannedTokenStore::default()),
+        let jwt_ttl = u64::from(config.jwt.jwt_ttl);
+        let tfa_ttl = u64::from(config.tfa.tfa_ttl);
+        let (banned_token_store_type, two_factor_auth_code_store_type) = match config.cache.cache_engine {
+            CacheEngine::Memory => (
+                BannedTokenStoreType::new(HashsetBannedTokenStore::new(jwt_ttl)),
+                TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::new(tfa_ttl)),
+            ),
             CacheEngine::Redis => {
-                let connection = configure_cache(&config.cache.cache_url()).expect("Failed to configure cache");
-                let connection = RwLock::new(connection);
-                BannedTokenStoreType::new(RedisBannedTokenStore::new(connection, u64::from(config.jwt.jwt_ttl)))
-            }
-        };
-        let two_factor_auth_code_store_type = match config.cache.cache_engine {
-            CacheEngine::Memory => TwoFactorAuthCodeStoreType::new(HashmapTwoFactorAuthCodeStore::default()),
-            CacheEngine::Redis => {
-                let connection = configure_cache(&config.cache.cache_url()).expect("Failed to configure cache");
-                let connection = RwLock::new(connection);
-                TwoFactorAuthCodeStoreType::new(RedisTwoFactorAuthCodeStore::new(
-                    connection,
-                    u64::from(config.tfa.tfa_ttl),
-                ))
+                let connection = configure_cache(&config.cache.cache_url())
+                    .await
+                    .expect("Failed to configure cache");
+                (
+                    BannedTokenStoreType::new(RedisBannedTokenStore::new(connection.clone(), jwt_ttl)),
+                    TwoFactorAuthCodeStoreType::new(RedisTwoFactorAuthCodeStore::new(connection, tfa_ttl)),
+                )
             }
         };
         let mut email_server = None;

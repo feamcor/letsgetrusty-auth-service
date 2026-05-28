@@ -1,7 +1,18 @@
 use crate::domain::Secret;
 
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct LoginAttemptId(Secret);
+
+// LoginAttemptId is returned to the caller inside `TwoFactorAuthResponse`, so the inner secret
+// must reach the wire as cleartext. Opt in explicitly rather than relying on a blanket impl.
+impl serde::Serialize for LoginAttemptId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        Secret::expose_serializer(&self.0, serializer)
+    }
+}
 
 #[derive(thiserror::Error, Debug)]
 #[error("Invalid Login Attempt Id")]
@@ -23,7 +34,7 @@ impl LoginAttemptId {
 
 impl Default for LoginAttemptId {
     fn default() -> Self {
-        Self(uuid::Uuid::now_v7().to_string().into())
+        Self(uuid::Uuid::new_v4().to_string().into())
     }
 }
 

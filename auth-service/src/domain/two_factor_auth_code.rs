@@ -3,7 +3,7 @@ use rand::RngExt;
 
 const TWO_FACTOR_AUTH_CODE_LENGTH: usize = 6;
 
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
 pub struct TwoFactorAuthCode(Secret);
 
 #[derive(thiserror::Error, Debug)]

@@ -3,7 +3,7 @@ use email_address::EmailAddress;
 use email_address::Options;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct Email(Secret);
 
 impl Email {
@@ -13,8 +13,11 @@ impl Email {
             allow_domain_literal: false,
             allow_display_text: false,
         };
-        match EmailAddress::parse_with_options(email.expose(), EMAIL_OPTIONS) {
-            Ok(_) => Ok(Self(email.to_owned())),
+        // Normalize to lowercase so equivalent addresses ("Alice@Example.com" vs
+        // "alice@example.com") hash and compare as the same identity.
+        let normalized: Secret = email.expose().trim().to_lowercase().into();
+        match EmailAddress::parse_with_options(normalized.expose(), EMAIL_OPTIONS) {
+            Ok(_) => Ok(Self(normalized)),
             Err(error) => Err(EmailError(error.into())),
         }
     }
@@ -70,5 +73,24 @@ mod tests {
     fn should_reject_invalid_email() {
         let email = "invalid-email".into();
         assert!(Email::parse(&email).is_err());
+    }
+
+    #[test]
+    fn parse_lowercases_input() {
+        let parsed = Email::parse(&"Alice@Example.com".into()).unwrap();
+        assert_eq!(parsed.as_secret().expose(), "alice@example.com");
+    }
+
+    #[test]
+    fn parse_trims_surrounding_whitespace() {
+        let parsed = Email::parse(&"  alice@example.com  ".into()).unwrap();
+        assert_eq!(parsed.as_secret().expose(), "alice@example.com");
+    }
+
+    #[test]
+    fn case_variant_emails_are_equal_after_parse() {
+        let a = Email::parse(&"Alice@Example.com".into()).unwrap();
+        let b = Email::parse(&"ALICE@example.COM".into()).unwrap();
+        assert_eq!(a, b);
     }
 }

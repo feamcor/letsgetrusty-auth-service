@@ -169,3 +169,40 @@ async fn should_return_500_if_unexpected_error(ctx: &mut TestAppAsyncContext) {
         assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), APPLICATION_JSON.as_ref());
     }
 }
+
+#[test_context(TestAppAsyncContext)]
+#[tokio::test]
+async fn login_is_case_insensitive_in_email(ctx: &mut TestAppAsyncContext) {
+    // Email::parse normalizes via trim+lowercase, so signing up as 'Alice@Example.com' and then
+    // logging in as 'alice@example.com' (or '  ALICE@EXAMPLE.COM  ') must succeed.
+    let app = TestApp::new(ctx.db_name.as_str()).await;
+    ctx.db_url = app.db_url.clone();
+    let local: String = SafeEmail().fake::<String>().split('@').next().unwrap().to_string();
+    let domain: String = format!("{}.example.com", DomainSuffix().fake::<String>());
+    let mixed_case_email = format!("{local}@{domain}").to_uppercase();
+    let password: String = SAFE_PASSWORD_LENGTH_RANGE.fake();
+
+    let signup_response = app
+        .post_signup(&json!({
+            "email": &mixed_case_email,
+            "password": &password,
+            "requires2FA": false,
+        }))
+        .await;
+    assert_eq!(signup_response.status(), StatusCode::CREATED);
+
+    // Login with a different case and surrounding whitespace; both should normalize to the same
+    // stored identity.
+    let lowered = format!("  {}  ", mixed_case_email.to_lowercase());
+    let login_response = app
+        .post_login(&json!({
+            "email": lowered,
+            "password": &password,
+        }))
+        .await;
+    assert_eq!(
+        login_response.status(),
+        StatusCode::OK,
+        "case-variant + whitespace email should resolve to the same user",
+    );
+}
