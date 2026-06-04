@@ -7,6 +7,7 @@ use std::time::Duration;
 use std::time::Instant;
 use tokio::sync::RwLock;
 
+/// In-memory [`BannedTokenStore`] with TTL-based expiry; for development and tests.
 #[derive(Debug)]
 pub struct HashsetBannedTokenStore {
     tokens: RwLock<HashMap<String, Instant>>,

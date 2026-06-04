@@ -8,9 +8,7 @@ use redis::SetExpiry;
 use redis::SetOptions;
 use std::fmt::Debug;
 
-#[allow(unused_imports)]
-use tracing::Level;
-
+/// Redis-backed [`BannedTokenStore`] with per-entry expiry (the production cache backend).
 pub struct RedisBannedTokenStore {
     connection: redis::aio::MultiplexedConnection,
     jwt_ttl_secs: u64,
@@ -36,7 +34,7 @@ impl RedisBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for RedisBannedTokenStore {
-    #[tracing::instrument(name = "AddBannedTokenIntoCache", level = Level::TRACE, skip_all)]
+    #[tracing::instrument(name = "AddBannedTokenIntoCache", level = tracing::Level::TRACE, skip_all)]
     async fn add_token(&self, token: &Token) -> BannedTokenStoreResult<()> {
         let key = token_key(token);
         let mut connection = self.connection.clone();
@@ -51,7 +49,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
         }
     }
 
-    #[tracing::instrument(name = "CheckBannedTokenInCache", level = Level::TRACE, skip_all)]
+    #[tracing::instrument(name = "CheckBannedTokenInCache", level = tracing::Level::TRACE, skip_all)]
     async fn is_token_banned(&self, token: &Token) -> BannedTokenStoreResult<bool> {
         let key = token_key(token);
         let mut connection = self.connection.clone();
@@ -61,7 +59,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
             .map_err(|error| BannedTokenStoreError::UnexpectedError(error.into()))
     }
 
-    #[tracing::instrument(name = "RemoveBannedTokenFromCache", level = Level::TRACE, skip_all)]
+    #[tracing::instrument(name = "RemoveBannedTokenFromCache", level = tracing::Level::TRACE, skip_all)]
     async fn remove_token(&self, token: &Token) -> BannedTokenStoreResult<()> {
         let key = token_key(token);
         let mut connection = self.connection.clone();

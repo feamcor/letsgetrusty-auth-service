@@ -3,10 +3,20 @@ use email_address::EmailAddress;
 use email_address::Options;
 use std::str::FromStr;
 
+/// A syntactically valid, lowercase-normalized email address.
+///
+/// Construct via [`Email::parse`]; the inner value is a redacted [`Secret`], so the address never
+/// leaks through `Debug`/logs. Normalization makes case-variant addresses compare and hash equal.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct Email(Secret);
 
 impl Email {
+    /// Parse and normalize an email address (trimmed, lowercased, RFC-validated).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EmailError`] if the input is not a valid address (requires at least two
+    /// sub-domains; rejects domain literals and display text).
     pub fn parse(email: &Secret) -> EmailResult<Self> {
         const EMAIL_OPTIONS: Options = Options {
             minimum_sub_domains: 2,
@@ -51,10 +61,12 @@ impl FromStr for Email {
     }
 }
 
+/// Error returned when an email address fails validation.
 #[derive(thiserror::Error, Debug)]
 #[error("Invalid email")]
 pub struct EmailError(#[from] color_eyre::eyre::Report);
 
+/// Convenience alias for a fallible [`Email`] operation.
 pub type EmailResult<T> = Result<T, EmailError>;
 
 #[cfg(test)]

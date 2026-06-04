@@ -4,7 +4,6 @@ use crate::domain::LoginAttemptId;
 use crate::domain::Secret;
 use crate::domain::TwoFactorAuthCode;
 use crate::domain::validate_password_strength;
-use crate::utils::api_error::ApiError;
 use crate::utils::api_error::ApiResult;
 use crate::utils::auth::generate_auth_cookie;
 use axum::Json;
@@ -72,15 +71,9 @@ pub async fn login(
         return Ok((jar, (StatusCode::PARTIAL_CONTENT, Json(response)).into_response()));
     }
 
-    let config = state.config.inner();
-    let jwt_secret = config
-        .jwt
-        .jwt_secret
-        .clone()
-        .ok_or(ApiError::UnexpectedError(color_eyre::eyre::eyre!(
-            "JWT secret is not set."
-        )))?;
-    let cookie = generate_auth_cookie(&user.email, &jwt_secret, i64::from(config.jwt.jwt_ttl))?;
+    let jwt_secret = state.jwt_secret()?;
+    let jwt_ttl = i64::from(state.config.inner().jwt.jwt_ttl);
+    let cookie = generate_auth_cookie(&user.email, &jwt_secret, jwt_ttl)?;
     let jar = jar.add(cookie);
     Ok((jar, StatusCode::OK.into_response()))
 }

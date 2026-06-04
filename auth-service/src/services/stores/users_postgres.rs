@@ -5,11 +5,13 @@ use crate::services::UserStore;
 use crate::services::UserStoreError;
 use crate::services::UserStoreResult;
 
+/// PostgreSQL-backed [`UserStore`] (the production user backend).
 pub struct PostgresUserStore {
     pool: sqlx::PgPool,
 }
 
 impl PostgresUserStore {
+    /// Build a store over an existing connection pool.
     #[must_use]
     pub fn new(pool: sqlx::PgPool) -> Self {
         Self { pool }

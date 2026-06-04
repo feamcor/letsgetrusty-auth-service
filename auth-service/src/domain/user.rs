@@ -1,6 +1,8 @@
 use crate::domain::Email;
 use crate::domain::HashedPassword;
 
+/// An authenticated account: a validated [`Email`], an Argon2 [`HashedPassword`], and the
+/// account's two-factor-authentication preference.
 #[derive(Debug, Clone)]
 pub struct User {
     pub email: Email,
@@ -9,6 +11,7 @@ pub struct User {
 }
 
 impl User {
+    /// Assemble a [`User`] from already-validated components.
     #[must_use]
     pub fn new(email: &Email, password: &HashedPassword, requires_2fa: bool) -> Self {
         Self {

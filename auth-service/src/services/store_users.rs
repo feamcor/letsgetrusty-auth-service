@@ -5,6 +5,7 @@ use crate::domain::User;
 use crate::domain::compute_password_hash_sync;
 use std::sync::LazyLock;
 
+/// Failure modes of a [`UserStore`] operation.
 #[derive(thiserror::Error, Debug)]
 pub enum UserStoreError {
     #[error("User already exists")]
@@ -17,6 +18,7 @@ pub enum UserStoreError {
     UnexpectedError(#[from] color_eyre::eyre::Report),
 }
 
+/// Convenience alias for a fallible [`UserStore`] operation.
 pub type UserStoreResult<T> = Result<T, UserStoreError>;
 
 // Throwaway Argon2id hash used to equalize wall-clock time on the user-not-found branch of
@@ -41,10 +43,34 @@ pub fn warm_decoy_password_hash() {
     let _ = &*DECOY_PASSWORD_HASH;
 }
 
+/// Persistence for user accounts, backed by an in-memory map or PostgreSQL.
+///
+/// Implementors provide [`add_user`](UserStore::add_user) and
+/// [`get_user`](UserStore::get_user); [`validate_user`](UserStore::validate_user) is provided and
+/// is timing-oracle hardened (see its implementation).
 #[async_trait::async_trait]
 pub trait UserStore: Send + Sync {
+    /// Insert a new user.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserStoreError::UserAlreadyExists`] if the email is already registered.
     async fn add_user(&self, user: User) -> UserStoreResult<()>;
+
+    /// Fetch a user by email.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserStoreError::UserNotFound`] if no account has that email.
     async fn get_user(&self, email: &Email) -> UserStoreResult<User>;
+
+    /// Verify an email/password pair, equalizing latency across the unknown-email and
+    /// wrong-password branches to defeat user-enumeration timing attacks.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserStoreError::IncorrectCredentials`] for any unknown email or password
+    /// mismatch (the two are deliberately indistinguishable to callers).
     async fn validate_user(&self, email: &Email, password: &Secret) -> UserStoreResult<()> {
         match self.get_user(email).await {
             Ok(user) => match user.password.verify_password(password).await {
@@ -63,28 +89,9 @@ pub trait UserStore: Send + Sync {
     }
 }
 
-#[derive(Clone)]
-pub struct UserStoreType {
-    inner: std::sync::Arc<dyn UserStore>,
-}
-
-impl UserStoreType {
-    pub fn new(inner: impl UserStore + 'static) -> Self {
-        Self {
-            inner: std::sync::Arc::new(inner),
-        }
-    }
-
-    #[must_use]
-    pub fn inner(&self) -> std::sync::Arc<dyn UserStore> {
-        self.inner.clone()
-    }
-}
-
-impl std::fmt::Debug for UserStoreType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("UserStoreType").finish_non_exhaustive()
-    }
+crate::services::arc_dyn::arc_dyn_newtype! {
+    /// Shared, cloneable handle to the active [`UserStore`] implementation.
+    UserStoreType, UserStore
 }
 
 #[cfg(test)]
@@ -130,15 +137,21 @@ mod tests {
         store.add_user(user).await.unwrap();
 
         // Warm up — Argon2 setup + LazyLock init shouldn't skew the first measurement.
-        let _ = store.validate_user(&known_email, &"wrong-Wrong-PASSWORD-111!".into()).await;
+        let _ = store
+            .validate_user(&known_email, &"wrong-Wrong-PASSWORD-111!".into())
+            .await;
 
         let wrong_password_time = elapsed_for(|| async {
-            let _ = store.validate_user(&known_email, &"wrong-Wrong-PASSWORD-111!".into()).await;
+            let _ = store
+                .validate_user(&known_email, &"wrong-Wrong-PASSWORD-111!".into())
+                .await;
         })
         .await;
         let unknown_email = Email::parse(&SafeEmail().fake::<String>().into()).unwrap();
         let unknown_email_time = elapsed_for(|| async {
-            let _ = store.validate_user(&unknown_email, &"wrong-Wrong-PASSWORD-111!".into()).await;
+            let _ = store
+                .validate_user(&unknown_email, &"wrong-Wrong-PASSWORD-111!".into())
+                .await;
         })
         .await;
 

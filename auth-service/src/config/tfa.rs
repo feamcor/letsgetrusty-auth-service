@@ -7,7 +7,7 @@ pub mod default {
 }
 
 /// Single source of truth for the accepted tfa_ttl range (1 minute–15 minutes). Typed as i64
-/// for clap's RangeBounds<i64> contract; we cast on the env-fallback side.
+/// for clap's `RangeBounds<i64>` contract; we cast on the env-fallback side.
 pub const TFA_TTL_RANGE: std::ops::RangeInclusive<i64> = 60..=900;
 
 #[derive(clap::Args, Debug)]

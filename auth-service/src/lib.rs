@@ -1,3 +1,9 @@
+//! Email/password auth microservice with email-based 2FA.
+//!
+//! [`Application::build`] wires the axum router; runtime dependencies (user store, banned-token
+//! store, 2FA-code store, email client) are pluggable traits in [`services`], assembled into
+//! [`app_state::AppState`] from [`config::Config`]. Domain input validation lives in [`domain`].
+
 use crate::app_state::AppState;
 use crate::domain::Secret;
 use axum::http::HeaderName;

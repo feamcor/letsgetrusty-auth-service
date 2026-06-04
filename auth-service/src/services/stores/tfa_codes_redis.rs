@@ -9,9 +9,7 @@ use redis::SetExpiry;
 use redis::SetOptions;
 use std::fmt::Debug;
 
-#[allow(unused_imports)]
-use tracing::Level;
-
+/// Redis-backed [`TwoFactorAuthCodeStore`] with per-entry expiry (the production cache backend).
 pub struct RedisTwoFactorAuthCodeStore {
     connection: redis::aio::MultiplexedConnection,
     tfa_ttl_secs: u64,
@@ -37,7 +35,7 @@ impl RedisTwoFactorAuthCodeStore {
 
 #[async_trait::async_trait]
 impl TwoFactorAuthCodeStore for RedisTwoFactorAuthCodeStore {
-    #[tracing::instrument(name = "Add2FACodeToCache", level = Level::TRACE, skip_all)]
+    #[tracing::instrument(name = "Add2FACodeToCache", level = tracing::Level::TRACE, skip_all)]
     async fn add_code(
         &self,
         email: Email,
@@ -88,7 +86,7 @@ impl TwoFactorAuthCodeStore for RedisTwoFactorAuthCodeStore {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
-struct TwoFactorAuthTuple(pub String, pub String);
+struct TwoFactorAuthTuple(String, String);
 
 fn get_key(email: &Email) -> String {
     format!("code:2fa:{}", email.as_secret().expose())

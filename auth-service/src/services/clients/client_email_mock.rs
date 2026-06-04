@@ -2,6 +2,7 @@ use crate::domain::Email;
 use crate::services::EmailClient;
 use crate::services::EmailClientResult;
 
+/// [`EmailClient`] that logs instead of sending — used in development and tests.
 #[derive(Debug, Clone)]
 pub struct MockEmailClient;
 

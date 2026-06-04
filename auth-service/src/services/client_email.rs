@@ -1,38 +1,27 @@
 use crate::domain::Email;
 
+/// Failure modes of an [`EmailClient`] operation.
 #[derive(thiserror::Error, Debug)]
 pub enum EmailClientError {
     #[error(transparent)]
     UnexpectedError(#[from] color_eyre::eyre::Report),
 }
 
+/// Convenience alias for a fallible [`EmailClient`] operation.
 pub type EmailClientResult<T> = Result<T, EmailClientError>;
 
+/// Outbound transactional email (e.g. 2FA codes), backed by a no-op mock or the Postmark API.
 #[async_trait::async_trait]
 pub trait EmailClient: Send + Sync {
+    /// Send a plain-text email to a single recipient.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EmailClientError::UnexpectedError`] if the message could not be dispatched.
     async fn send_email(&self, recipient: &Email, subject: &str, content: &str) -> EmailClientResult<()>;
 }
 
-#[derive(Clone)]
-pub struct EmailClientType {
-    inner: std::sync::Arc<dyn EmailClient>,
-}
-
-impl EmailClientType {
-    pub fn new(inner: impl EmailClient + 'static) -> Self {
-        Self {
-            inner: std::sync::Arc::new(inner),
-        }
-    }
-
-    #[must_use]
-    pub fn inner(&self) -> std::sync::Arc<dyn EmailClient> {
-        self.inner.clone()
-    }
-}
-
-impl std::fmt::Debug for EmailClientType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EmailClientType").finish_non_exhaustive()
-    }
+crate::services::arc_dyn::arc_dyn_newtype! {
+    /// Shared, cloneable handle to the active [`EmailClient`] implementation.
+    EmailClientType, EmailClient
 }

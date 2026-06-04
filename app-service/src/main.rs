@@ -71,9 +71,14 @@ async fn main() {
         .route("/", get(root))
         .route("/protected", get(protected))
         .with_state(config);
-    let listener = tokio::net::TcpListener::bind(("0.0.0.0", bind_port)).await.unwrap();
-    tracing::info!("listening on {}", listener.local_addr().unwrap());
-    axum::serve(listener, app).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(("0.0.0.0", bind_port))
+        .await
+        .expect("failed to bind app-service listener");
+    tracing::info!(
+        "listening on {}",
+        listener.local_addr().expect("listener has a local address")
+    );
+    axum::serve(listener, app).await.expect("app-service server error");
 }
 
 #[derive(Template)]
@@ -90,7 +95,7 @@ async fn root(State(config): State<Arc<AppConfig>>) -> impl IntoResponse {
         login_link: base.clone(),
         logout_link: format!("{base}/logout"),
     };
-    Html(template.render().unwrap())
+    Html(template.render().expect("index template renders"))
 }
 
 //noinspection HttpUrlsUsage
@@ -98,7 +103,9 @@ async fn protected(State(config): State<Arc<AppConfig>>, jar: CookieJar) -> impl
     let Some(jwt_cookie) = jar.get("jwt") else {
         return axum::http::StatusCode::UNAUTHORIZED.into_response();
     };
-    let api_client = reqwest::Client::builder().build().unwrap();
+    let api_client = reqwest::Client::builder()
+        .build()
+        .expect("failed to build reqwest client");
     let verify_token_body = serde_json::json!({
         "token": &jwt_cookie.value(),
     });
