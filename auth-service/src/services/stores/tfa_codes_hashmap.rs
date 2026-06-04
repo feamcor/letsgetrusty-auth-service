@@ -11,6 +11,7 @@ use tokio::sync::RwLock;
 
 type Entry = (LoginAttemptId, TwoFactorAuthCode, Instant);
 
+/// In-memory [`TwoFactorAuthCodeStore`] with TTL-based expiry; for development and tests.
 #[derive(Debug)]
 pub struct HashmapTwoFactorAuthCodeStore {
     codes: RwLock<HashMap<Email, Entry>>,

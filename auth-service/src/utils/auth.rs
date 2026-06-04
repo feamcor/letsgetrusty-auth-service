@@ -10,10 +10,13 @@ use jsonwebtoken::Validation;
 use jsonwebtoken::decode;
 use jsonwebtoken::encode;
 
+/// Name of the cookie carrying the session JWT.
 pub const JWT_COOKIE_NAME: &str = "jwt";
 
+/// Convenience alias for a fallible token-generation operation.
 pub type GenerateTokenResult<T> = Result<T, GenerateTokenError>;
 
+/// Failure modes of JWT minting (signing or expiration arithmetic).
 #[derive(thiserror::Error, Debug)]
 pub enum GenerateTokenError {
     #[error(transparent)]
@@ -26,11 +29,17 @@ pub enum GenerateTokenError {
     ExpirationConversionError,
 }
 
+/// Mint a signed session JWT for `email` and wrap it in a hardened auth cookie.
+///
+/// # Errors
+///
+/// Returns [`GenerateTokenError`] if `ttl` is out of range or JWT signing fails.
 pub fn generate_auth_cookie(email: &Email, secret: &Secret, ttl: i64) -> GenerateTokenResult<Cookie<'static>> {
     let token = generate_auth_token(email, secret, ttl)?;
     Ok(create_auth_cookie(&token))
 }
 
+/// Wrap an existing token in the hardened auth cookie (`HttpOnly`, `Secure`, `SameSite=Lax`).
 #[must_use]
 pub fn create_auth_cookie(token: &Token) -> Cookie<'static> {
     Cookie::build((JWT_COOKIE_NAME, token.as_secret().expose().to_owned()))
@@ -58,13 +67,20 @@ fn generate_auth_token(email: &Email, secret: &Secret, ttl: i64) -> GenerateToke
     Ok(token)
 }
 
+/// JWT claims: `sub` is the account email, `exp` the Unix expiry timestamp.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Claims {
     pub sub: String,
     pub exp: usize,
 }
 
-pub async fn validate_token(token: &Token, secret: &Secret) -> jsonwebtoken::errors::Result<Claims> {
+/// Decode and verify a session JWT against `secret`, returning its [`Claims`].
+///
+/// # Errors
+///
+/// Returns a [`jsonwebtoken`] error if the signature is invalid, the token is malformed, or it
+/// has expired.
+pub fn validate_token(token: &Token, secret: &Secret) -> jsonwebtoken::errors::Result<Claims> {
     decode::<Claims>(
         token.as_secret().expose(),
         &DecodingKey::from_secret(secret.expose().as_bytes()),
@@ -94,7 +110,7 @@ mod tests {
         dotenvy::dotenv_override().ok();
         let email = SafeEmail().fake::<String>().into();
         let parsed_email = Email::parse(&email).unwrap();
-        let secret = config::secret_from_environment(config::jwt::var::SECRET).unwrap();
+        let secret = config::secret_from_environment(config::jwt::var::SECRET);
         let cookie = generate_auth_cookie(&parsed_email, &secret, i64::from(config::jwt::default::TTL)).unwrap();
         assert_eq!(cookie.name(), JWT_COOKIE_NAME);
         assert_eq!(cookie.value().split('.').count(), 3);
@@ -120,7 +136,7 @@ mod tests {
         dotenvy::dotenv_override().ok();
         let email = SafeEmail().fake::<String>().into();
         let parsed_email = Email::parse(&email).unwrap();
-        let secret = config::secret_from_environment(config::jwt::var::SECRET).unwrap();
+        let secret = config::secret_from_environment(config::jwt::var::SECRET);
         let token = generate_auth_token(&parsed_email, &secret, i64::from(config::jwt::default::TTL)).unwrap();
         assert_eq!(token.as_secret().expose().split('.').count(), 3);
     }
@@ -130,14 +146,9 @@ mod tests {
         dotenvy::dotenv_override().ok();
         let email = SafeEmail().fake::<String>().into();
         let parsed_email = Email::parse(&email).unwrap();
-        let secret = config::secret_from_environment(config::jwt::var::SECRET).unwrap();
+        let secret = config::secret_from_environment(config::jwt::var::SECRET);
         let token = generate_auth_token(&parsed_email, &secret, i64::from(config::jwt::default::TTL)).unwrap();
-        let result = validate_token(
-            &token,
-            &config::secret_from_environment(config::jwt::var::SECRET).unwrap(),
-        )
-        .await
-        .unwrap();
+        let result = validate_token(&token, &config::secret_from_environment(config::jwt::var::SECRET)).unwrap();
         assert_eq!(result.sub, email.expose());
         let expiration = Utc::now()
             .checked_add_signed(chrono::Duration::try_minutes(9).expect("valid duration"))
@@ -150,8 +161,8 @@ mod tests {
     async fn test_validate_token_with_invalid_token() {
         dotenvy::dotenv_override().ok();
         let token = Token::new(&"invalid_token".into());
-        let secret = config::secret_from_environment(config::jwt::var::SECRET).unwrap();
-        let result = validate_token(&token, &secret).await;
+        let secret = config::secret_from_environment(config::jwt::var::SECRET);
+        let result = validate_token(&token, &secret);
         assert!(result.is_err());
     }
 }

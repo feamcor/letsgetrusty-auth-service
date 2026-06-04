@@ -2,18 +2,38 @@ use secrecy::ExposeSecret;
 use secrecy::SecretString;
 use subtle::ConstantTimeEq;
 
+/// A sensitive string (password, token, key, DB URL) whose contents are redacted by `Debug`,
+/// `Display`, and the default `Serialize`, and compared in constant time via [`PartialEq`].
+///
+/// This is the canonical carrier for secret data throughout the crate. Call [`Secret::expose`]
+/// only at trust boundaries (sqlx connect, JWT encode/decode, outbound HTTP).
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct Secret(SecretString);
 
 impl Secret {
+    /// Wrap a cleartext string as a redacted secret.
     #[must_use]
     pub fn new(secret: &str) -> Self {
         Self(secret.into())
     }
 
+    /// Borrow the cleartext. Use only at a trust boundary — never log or serialize the result.
     #[must_use]
     pub fn expose(&self) -> &str {
         self.0.expose_secret()
+    }
+
+    /// Opt-in serializer that emits the cleartext. Intended for `#[serde(serialize_with = ...)]`
+    /// on individual fields whose plaintext must reach the wire.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any error returned by the underlying `serializer`.
+    pub fn expose_serializer<S>(secret: &Secret, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(secret.expose())
     }
 }
 
@@ -119,17 +139,9 @@ mod tests {
         // secrecy::SecretString's Debug already redacts; verify we haven't accidentally bypassed.
         let secret: Secret = "very-secret-value".into();
         let debug = format!("{secret:?}");
-        assert!(!debug.contains("very-secret-value"), "Debug must not contain cleartext: {debug}");
-    }
-}
-
-impl Secret {
-    /// Opt-in serializer that emits the cleartext. Intended for `#[serde(serialize_with = ...)]`
-    /// on individual fields whose plaintext must reach the wire.
-    pub fn expose_serializer<S>(secret: &Secret, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(secret.expose())
+        assert!(
+            !debug.contains("very-secret-value"),
+            "Debug must not contain cleartext: {debug}"
+        );
     }
 }

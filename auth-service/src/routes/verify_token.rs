@@ -20,20 +20,9 @@ pub async fn verify_token(
     State(state): State<AppState>,
     Json(request): Json<VerifyTokenRequest>,
 ) -> ApiResult<impl IntoResponse> {
-    let config = &state.config;
     let token = Token::new(&request.token);
-    let jwt_secret =
-        config
-            .inner()
-            .jwt
-            .jwt_secret
-            .clone()
-            .ok_or(ApiError::UnexpectedError(color_eyre::eyre::eyre!(
-                "JWT secret is not set."
-            )))?;
-    validate_token(&token, &jwt_secret)
-        .await
-        .map_err(|_| ApiError::TokenInvalid)?;
+    let jwt_secret = state.jwt_secret()?;
+    validate_token(&token, &jwt_secret).map_err(|_| ApiError::TokenInvalid)?;
     let is_banned = state
         .banned_token_store
         .inner()

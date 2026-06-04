@@ -15,7 +15,7 @@ pub mod default {
 pub const MIN_JWT_SECRET_BYTES: usize = 32;
 
 /// Single source of truth for the accepted jwt_ttl range. Typed as i64 so clap's value_parser
-/// (which constrains via RangeBounds<i64>) and the env-var fallback can share the same literal.
+/// (which constrains via `RangeBounds<i64>`) and the env-var fallback can share the same literal.
 pub const JWT_TTL_RANGE: std::ops::RangeInclusive<i64> = 300..=3600;
 
 #[derive(clap::Args, Debug)]
@@ -52,22 +52,16 @@ impl JwtConfig {
 
     pub fn load_mandatory_arguments(&mut self) {
         let jwt_secret = config::secret_from_environment(var::SECRET);
-        if let Some(secret) = jwt_secret.as_ref()
-            && secret.expose().len() < MIN_JWT_SECRET_BYTES
-        {
+        if jwt_secret.expose().len() < MIN_JWT_SECRET_BYTES {
             tracing::error!(
                 "{} must be at least {} bytes (got {})",
                 var::SECRET,
                 MIN_JWT_SECRET_BYTES,
-                secret.expose().len()
+                jwt_secret.expose().len()
             );
-            panic!(
-                "{} must be at least {} bytes",
-                var::SECRET,
-                MIN_JWT_SECRET_BYTES
-            );
+            panic!("{} must be at least {} bytes", var::SECRET, MIN_JWT_SECRET_BYTES);
         }
-        self.jwt_secret = jwt_secret;
+        self.jwt_secret = Some(jwt_secret);
     }
 }
 
@@ -116,11 +110,7 @@ mod tests {
             std::env::remove_var(VAR);
         }
         if secret.expose().len() < MIN_JWT_SECRET_BYTES {
-            panic!(
-                "{} must be at least {} bytes",
-                var::SECRET,
-                MIN_JWT_SECRET_BYTES
-            );
+            panic!("{} must be at least {} bytes", var::SECRET, MIN_JWT_SECRET_BYTES);
         }
     }
 

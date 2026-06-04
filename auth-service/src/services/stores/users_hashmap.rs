@@ -6,6 +6,7 @@ use crate::services::UserStoreResult;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
+/// In-memory [`UserStore`] keyed by email; for development and tests (state is lost on restart).
 #[derive(Debug, Default)]
 pub struct HashmapUserStore {
     users: RwLock<HashMap<String, User>>,

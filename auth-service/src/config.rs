@@ -1,3 +1,9 @@
+//! Runtime configuration, one submodule per concern, assembled into [`Config`].
+//!
+//! Every field is a [`clap::Args`] group flattened into [`Config`] and mirrored by an
+//! `AUTH_SERVICE_*` environment variable. Mandatory secrets are loaded via
+//! `load_mandatory_arguments` and the service refuses to boot if any is missing.
+
 pub mod cache;
 pub mod database;
 pub mod email;
@@ -11,6 +17,7 @@ use clap::Parser;
 use dotenvy::dotenv_override;
 use std::sync::Arc;
 
+/// The fully-assembled runtime configuration (all `AUTH_SERVICE_*` settings).
 #[derive(Parser, Debug, Default)]
 #[command(author, version, about, long_about = None)]
 pub struct Config {
@@ -78,6 +85,7 @@ impl Config {
     }
 }
 
+/// Shared, cloneable handle to the immutable [`Config`] (clone bumps an `Arc` refcount).
 #[derive(Clone, Debug)]
 pub struct ConfigType {
     inner: Arc<Config>,
@@ -97,7 +105,14 @@ impl ConfigType {
     }
 }
 
-pub fn secret_from_environment(variable: &str) -> Option<Secret> {
+/// Read a mandatory secret from the environment, failing fast at startup if it is absent or blank.
+///
+/// # Panics
+///
+/// Panics if `variable` is unset or its value is empty/whitespace — a missing mandatory secret is
+/// a fatal misconfiguration, so the service refuses to boot rather than run half-configured.
+#[must_use]
+pub fn secret_from_environment(variable: &str) -> Secret {
     let Ok(secret) = std::env::var(variable) else {
         panic!("secret is not set in the environment: {variable}");
     };
@@ -105,5 +120,5 @@ pub fn secret_from_environment(variable: &str) -> Option<Secret> {
         !secret.trim().is_empty(),
         "secret's value is empty in the environment: {variable}"
     );
-    Some(secret.into())
+    secret.into()
 }

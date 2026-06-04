@@ -6,6 +6,7 @@ use crate::services::EmailClientResult;
 
 const POSTMARK_AUTH_HEADER: &str = "X-Postmark-Server-Token";
 
+/// [`EmailClient`] that delivers mail through the Postmark transactional email API.
 pub struct PostmarkEmailClient {
     http_client: reqwest::Client,
     api_key: Secret,
@@ -15,6 +16,7 @@ pub struct PostmarkEmailClient {
 }
 
 impl PostmarkEmailClient {
+    /// Build a client from an HTTP client, server token, API URL, message stream, and sender.
     #[must_use]
     pub fn new(
         http_client: reqwest::Client,
@@ -83,20 +85,20 @@ impl EmailClient for PostmarkEmailClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fake::Fake;
+    use fake::Faker;
     use fake::faker::internet::en::SafeEmail;
     use fake::faker::lorem::en::Paragraph;
     use fake::faker::lorem::en::Sentence;
-    use fake::Fake;
-    use fake::Faker;
+    use wiremock::Mock;
+    use wiremock::MockServer;
+    use wiremock::Request;
+    use wiremock::ResponseTemplate;
     use wiremock::matchers::any;
     use wiremock::matchers::header;
     use wiremock::matchers::header_exists;
     use wiremock::matchers::method;
     use wiremock::matchers::path;
-    use wiremock::Mock;
-    use wiremock::MockServer;
-    use wiremock::Request;
-    use wiremock::ResponseTemplate;
 
     fn subject() -> String {
         Sentence(1..2).fake()

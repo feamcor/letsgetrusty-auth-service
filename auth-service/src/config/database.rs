@@ -60,7 +60,7 @@ pub mod default {
 
 /// Single source of truth for accepted db_pool_min / db_pool_max bounds. Cross-field invariant
 /// (POOL_MIN <= POOL_MAX) is enforced separately in load_mandatory_arguments. Typed as i64 for
-/// clap's RangeBounds<i64> contract; we cast on the env-fallback side.
+/// clap's `RangeBounds<i64>` contract; we cast on the env-fallback side.
 pub const DB_POOL_RANGE: std::ops::RangeInclusive<i64> = 1..=100;
 
 #[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
@@ -209,8 +209,7 @@ impl DatabaseConfig {
 
     pub fn load_mandatory_arguments(&mut self) {
         if self.db_engine == DatabaseEngine::Postgres {
-            let db_password = config::secret_from_environment(var::PASSWORD);
-            self.db_password = db_password;
+            self.db_password = Some(config::secret_from_environment(var::PASSWORD));
         }
         // Cross-field invariant: sqlx panics at runtime if min_connections > max_connections.
         // Catch the misconfiguration here so the operator sees a clean startup error.

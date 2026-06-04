@@ -1,9 +1,10 @@
+use auth_service::Application;
 use auth_service::app_state::AppState;
+use auth_service::config::Config;
+use auth_service::config::ConfigType;
 use auth_service::config::cache::CacheEngine;
 use auth_service::config::database::DatabaseEngine;
 use auth_service::config::email::EmailService;
-use auth_service::config::Config;
-use auth_service::config::ConfigType;
 use auth_service::configure_cache;
 use auth_service::domain::Email;
 use auth_service::domain::Secret;
@@ -19,17 +20,16 @@ use auth_service::services::RedisBannedTokenStore;
 use auth_service::services::RedisTwoFactorAuthCodeStore;
 use auth_service::services::TwoFactorAuthCodeStoreType;
 use auth_service::services::UserStoreType;
-use auth_service::Application;
 use axum::http::Uri;
-use reqwest::cookie::Jar;
 use reqwest::Client;
 use reqwest::Response;
-use sqlx::postgres::PgConnectOptions;
-use sqlx::postgres::PgPoolOptions;
+use reqwest::cookie::Jar;
 use sqlx::Connection;
 use sqlx::Executor;
 use sqlx::PgConnection;
 use sqlx::PgPool;
+use sqlx::postgres::PgConnectOptions;
+use sqlx::postgres::PgPoolOptions;
 use std::net::Ipv4Addr;
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -63,7 +63,7 @@ impl TestApp {
                     test_db_name,
                     &config.db.db_url(Some(test_db_name)),
                 )
-                    .await;
+                .await;
                 UserStoreType::new(PostgresUserStore::new(test_db_pool))
             }
         };
@@ -97,7 +97,8 @@ impl TestApp {
                     api_url,
                     api_timeout,
                     config.email.email_stream.clone(),
-                    config.email.email_sender.clone().unwrap());
+                    config.email.email_sender.clone().unwrap(),
+                );
                 EmailClientType::new(client)
             }
         };
@@ -254,7 +255,7 @@ async fn delete_database(real_db_url: &Secret, test_db_name: &str) {
                    AND pid <> pg_backend_pid();
                 "
             )
-                .as_str(),
+            .as_str(),
         )
         .await
         .expect("Failed to kill all connections to the test database");

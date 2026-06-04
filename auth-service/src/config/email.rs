@@ -21,7 +21,7 @@ pub mod default {
 }
 
 /// Single source of truth for the accepted email API timeout (ms). Typed as i64 for clap's
-/// RangeBounds<i64> contract; we cast on the env-fallback side.
+/// `RangeBounds<i64>` contract; we cast on the env-fallback side.
 pub const EMAIL_API_TIMEOUT_RANGE: std::ops::RangeInclusive<i64> = 100..=60000;
 
 #[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
@@ -131,15 +131,12 @@ impl EmailServiceConfig {
 
     pub fn load_mandatory_arguments(&mut self) {
         if self.email_service == EmailService::Postmark {
-            let email_api_key = config::secret_from_environment(var::API_KEY);
             let email_sender = config::secret_from_environment(var::SENDER);
-            let email_sender = email_sender.as_ref();
-            let email_sender = email_sender.unwrap();
-            let email_sender = Email::parse(email_sender).unwrap_or_else(|e| {
+            let email_sender = Email::parse(&email_sender).unwrap_or_else(|e| {
                 tracing::error!("{}: {}", var::SENDER, e);
                 panic!("{}: {}", var::SENDER, e)
             });
-            self.email_api_key = email_api_key;
+            self.email_api_key = Some(config::secret_from_environment(var::API_KEY));
             self.email_sender = Some(email_sender);
         }
     }

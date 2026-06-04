@@ -29,6 +29,7 @@ pub const ARGON2_MEMORY_KIB: u32 = 19456;
 pub const ARGON2_ITERATIONS: u32 = 2;
 pub const ARGON2_PARALLELISM: u32 = 1;
 
+/// Failure modes of password validation, hashing, and verification.
 #[derive(thiserror::Error, Debug)]
 pub enum PasswordError {
     #[error("Password is too short (min length is {MIN_PASSWORD_LENGTH})")]
@@ -45,12 +46,23 @@ pub enum PasswordError {
     UnexpectedError(#[from] color_eyre::eyre::Report),
 }
 
+/// Convenience alias for a fallible password operation.
 pub type PasswordResult<T> = Result<T, PasswordError>;
 
+/// An Argon2id password hash stored as a PHC string (redacted via [`Secret`]).
+///
+/// Construct from cleartext with [`HashedPassword::parse`] (validates strength, then hashes) or
+/// from an existing stored hash with [`HashedPassword::parse_password_hash`].
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct HashedPassword(Secret);
 
 impl HashedPassword {
+    /// Validate a cleartext password's strength, then hash it with Argon2id.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PasswordError::TooShort`], [`PasswordError::TooLong`], or [`PasswordError::Weak`]
+    /// if the password fails the strength check, or an error if hashing itself fails.
     #[tracing::instrument(name = "HashedPasswordParsing", level = tracing::Level::TRACE, skip_all
     )]
     pub async fn parse(password: &Secret, user: &Email) -> PasswordResult<Self> {
@@ -59,6 +71,12 @@ impl HashedPassword {
         Ok(Self(password_hash))
     }
 
+    /// Adopt an already-computed hash (e.g. one loaded from the database) after verifying it is a
+    /// well-formed PHC string.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PasswordError::InvalidPasswordHash`] if `hash` is not a valid PHC hash string.
     pub fn parse_password_hash(hash: &Secret) -> PasswordResult<Self> {
         let hash = hash.expose();
         match PasswordHash::new(hash) {
@@ -76,6 +94,12 @@ impl HashedPassword {
         &self.0
     }
 
+    /// Verify a cleartext candidate against this hash (Argon2 work runs on the blocking pool).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PasswordError::PasswordMismatch`] if the candidate does not match, or
+    /// [`PasswordError::UnexpectedError`] if the blocking verification task fails to join.
     #[tracing::instrument(name = "RawPasswordVerification", level = tracing::Level::TRACE, skip_all
     )]
     pub async fn verify_password(&self, candidate: &Secret) -> PasswordResult<()> {
@@ -113,6 +137,10 @@ impl std::hash::Hash for HashedPassword {
 
 /// Cheap structural validation: length bounds + zxcvbn entropy. Used by both signup (before the
 /// expensive hash) and login (to reject obviously bogus input without doing any Argon2 work).
+///
+/// # Errors
+///
+/// Returns [`PasswordError::TooShort`], [`PasswordError::TooLong`], or [`PasswordError::Weak`].
 pub fn validate_password_strength(password: &Secret, user: &Email) -> PasswordResult<()> {
     let raw_password = password.expose();
     if raw_password.len() < MIN_PASSWORD_LENGTH {
@@ -132,6 +160,10 @@ pub fn validate_password_strength(password: &Secret, user: &Email) -> PasswordRe
 /// Synchronous, blocking Argon2id hash. Suitable for `spawn_blocking` or one-shot startup work.
 /// Centralized so any change to algorithm/version/params applies everywhere a hash is produced
 /// (the decoy in `store_users.rs` shares this).
+///
+/// # Errors
+///
+/// Returns an error if the Argon2 parameters are invalid or hashing fails.
 pub fn compute_password_hash_sync(password: &[u8]) -> color_eyre::eyre::Result<String> {
     let salt: SaltString = SaltString::generate(&mut OsRng);
     let params = Params::new(ARGON2_MEMORY_KIB, ARGON2_ITERATIONS, ARGON2_PARALLELISM, None)?;

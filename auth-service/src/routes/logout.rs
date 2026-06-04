@@ -18,17 +18,8 @@ pub async fn logout(State(state): State<AppState>, jar: CookieJar) -> ApiResult<
     };
     let cookie = cookie.value().into();
     let token = Token::new(&cookie);
-    let config = state.config.inner();
-    let jwt_secret = config
-        .jwt
-        .jwt_secret
-        .clone()
-        .ok_or(ApiError::UnexpectedError(color_eyre::eyre::eyre!(
-            "JWT secret is not set."
-        )))?;
-    validate_token(&token, &jwt_secret)
-        .await
-        .map_err(|_| ApiError::TokenInvalid)?;
+    let jwt_secret = state.jwt_secret()?;
+    validate_token(&token, &jwt_secret).map_err(|_| ApiError::TokenInvalid)?;
     // Clear the cookie unconditionally — it's a purely client-side state change and we want the
     // browser to drop the JWT even if the server-side ban write below fails. Returning Err here
     // would discard the jar (axum only sends Set-Cookie on the Ok branch).
@@ -40,7 +31,10 @@ pub async fn logout(State(state): State<AppState>, jar: CookieJar) -> ApiResult<
     match state.banned_token_store.inner().add_token(&token).await {
         Ok(()) | Err(BannedTokenStoreError::TokenAlreadyExists) => {}
         Err(error) => {
-            tracing::error!("banned-token store failed during logout (cookie still cleared): {}", error);
+            tracing::error!(
+                "banned-token store failed during logout (cookie still cleared): {}",
+                error
+            );
         }
     }
     Ok((jar, StatusCode::OK.into_response()))

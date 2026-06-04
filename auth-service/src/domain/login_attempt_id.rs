@@ -1,5 +1,7 @@
 use crate::domain::Secret;
 
+/// A UUID identifying a single 2FA login attempt, round-tripped to the client between
+/// `/login` and `/verify-2fa`.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct LoginAttemptId(Secret);
 
@@ -14,11 +16,17 @@ impl serde::Serialize for LoginAttemptId {
     }
 }
 
+/// Error returned when a login-attempt id is not a valid UUID.
 #[derive(thiserror::Error, Debug)]
 #[error("Invalid Login Attempt Id")]
 pub struct LoginAttemptIdError;
 
 impl LoginAttemptId {
+    /// Parse a client-supplied login-attempt id, validating it is a well-formed UUID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LoginAttemptIdError`] if `id` is not a valid UUID string.
     pub fn parse(id: &Secret) -> Result<Self, LoginAttemptIdError> {
         let raw_id = id.expose();
         uuid::Uuid::parse_str(raw_id)
